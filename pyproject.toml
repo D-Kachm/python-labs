@@ -4,11 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "car-catalog"
-version = "0.6.0"
-description = "Laboratory project for Professional Python - Lab 6 (Automated Testing with pytest & Coverage)"
+version = "0.7.0"
+description = "Laboratory project for Professional Python - Lab 7 (Persistence Layer, SQLite, SQLAlchemy & Migrations)"
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0.1",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]

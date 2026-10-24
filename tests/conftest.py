@@ -147,3 +147,64 @@ def teardown_tracker() -> Generator[dict[str, Any], None, None]:
 def clean_app_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("APP_SKIP_INVALID", raising=False)
     monkeypatch.delenv("APP_LOG_LEVEL", raising=False)
+
+@pytest.fixture
+def db_engine() -> Generator[Any, None, None]:
+    from car_catalog.database import Base, create_database_engine
+    engine = create_database_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    yield engine
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+@pytest.fixture
+def db_session(db_engine: Any) -> Generator[Any, None, None]:
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=db_engine, autoflush=False, expire_on_commit=False)
+    with SessionLocal() as session:
+        yield session
+
+@pytest.fixture
+def populated_db_session(db_session: Any) -> Any:
+    from car_catalog.db_models import CarEntity, Manufacturer
+    toyota = Manufacturer(name="Toyota", country="Japan")
+    bmw = Manufacturer(name="BMW", country="Germany")
+    tesla = Manufacturer(name="Tesla", country="USA")
+    db_session.add_all([toyota, bmw, tesla])
+    db_session.commit()
+
+    car1 = CarEntity(
+        manufacturer_id=toyota.id,
+        model="Camry",
+        year=2021,
+        price=26000.0,
+        mileage=45000.0,
+        vin="1HGCR2F83HA000001",
+    )
+    car2 = CarEntity(
+        manufacturer_id=bmw.id,
+        model="M3",
+        year=2022,
+        price=75000.0,
+        mileage=12000.0,
+        vin="1HGCR2F83HA000002",
+    )
+    car3 = CarEntity(
+        manufacturer_id=tesla.id,
+        model="Model 3",
+        year=2023,
+        price=42000.0,
+        mileage=15000.0,
+        vin="1HGCR2F83HA000003",
+    )
+    car4 = CarEntity(
+        manufacturer_id=toyota.id,
+        model="Corolla",
+        year=2020,
+        price=20000.0,
+        mileage=35000.0,
+        vin="1HGCR2F83HA000004",
+    )
+    db_session.add_all([car1, car2, car3, car4])
+    db_session.commit()
+    return db_session

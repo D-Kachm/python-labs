@@ -26,7 +26,21 @@ car-catalog
 python3 -m car_catalog.main
 ```
 
-### 2. Лабораторна робота №6 (Автоматизоване тестування Python-програм):
+### 2. Лабораторна робота №7 (Робота з базами даних у Python):
+```bash
+# Запуск міграцій схеми бази даних за допомогою Alembic:
+alembic current
+alembic upgrade head
+alembic downgrade -1
+
+# Запуск автоматизованих інтеграційних тестів репозиторіїв та ORM:
+pytest tests/integration/test_repositories.py -v
+
+# Демонстрація 7 ключових persistence-експериментів (CRUD, ON DELETE CASCADE, DB-API, ACID, GROUP BY, UNIQUE VIN, Alembic):
+python3 scripts/run_experiments_lab7.py
+```
+
+### 3. Лабораторна робота №6 (Автоматизоване тестування Python-програм):
 ```bash
 # Запуск повного тестового набору з покриттям коду та перевіркою розгалужень (Branch Coverage):
 pytest -v --cov=car_catalog --cov-branch --cov-report=term-missing --cov-report=html
@@ -91,5 +105,5 @@ pytest -v --cov=car_catalog --cov-branch --cov-report=term-missing
 
 ## Static Type Checking
 ```bash
-mypy src tests scripts/run_experiments_lab6.py
+mypy src tests scripts
 ```
