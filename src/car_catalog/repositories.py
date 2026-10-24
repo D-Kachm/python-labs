@@ -104,6 +104,14 @@ class SqlAlchemyCarRepository:
         statement = select(CarEntity).where(CarEntity.manufacturer_id == manufacturer_id)
         return list(self.session.scalars(statement))
 
+    def find_by_manufacturer_name(self, name: str) -> list[CarEntity]:
+        statement = (
+            select(CarEntity)
+            .join(Manufacturer, CarEntity.manufacturer_id == Manufacturer.id)
+            .where(Manufacturer.name == name)
+        )
+        return list(self.session.scalars(statement))
+
     def filter_by_year(self, year: int) -> list[CarEntity]:
         statement = select(CarEntity).where(CarEntity.year == year)
         return list(self.session.scalars(statement))
@@ -116,9 +124,15 @@ class SqlAlchemyCarRepository:
         statement = select(CarEntity).order_by(CarEntity.price.desc()).limit(1)
         return self.session.scalar(statement)
 
+    def get_most_expensive_car(self) -> CarEntity | None:
+        return self.get_most_expensive()
+
     def get_lowest_mileage(self) -> CarEntity | None:
         statement = select(CarEntity).order_by(CarEntity.mileage.asc()).limit(1)
         return self.session.scalar(statement)
+
+    def get_lowest_mileage_car(self) -> CarEntity | None:
+        return self.get_lowest_mileage()
 
     def get_average_price(self) -> float:
         statement = select(func.avg(CarEntity.price))

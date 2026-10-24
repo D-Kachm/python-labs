@@ -1,7 +1,8 @@
-from collections.abc import Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from pathlib import Path
 from typing import Any
 import pytest
+from sqlalchemy.orm import Session
 from car_catalog.abstractions import NoDiscount, PercentageDiscount
 from car_catalog.models import Car, ElectricCar, Vehicle
 from car_catalog.repositories import VehicleRepository
@@ -150,8 +151,10 @@ def clean_app_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def db_engine() -> Generator[Any, None, None]:
+    from sqlalchemy.pool import StaticPool
     from car_catalog.database import Base, create_database_engine
-    engine = create_database_engine("sqlite:///:memory:")
+
+    engine = create_database_engine("sqlite:///:memory:", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)
@@ -208,3 +211,32 @@ def populated_db_session(db_session: Any) -> Any:
     db_session.add_all([car1, car2, car3, car4])
     db_session.commit()
     return db_session
+
+@pytest.fixture
+def api_client(populated_db_session: Session) -> Generator[Any, None, None]:
+    from fastapi.testclient import TestClient
+    from car_catalog.api import app, get_session
+
+    def override_get_session() -> Generator[Session, None, None]:
+        yield populated_db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    client = TestClient(app)
+    try:
+        yield client
+    finally:
+        app.dependency_overrides.clear()
+
+@pytest.fixture
+async def async_api_client(populated_db_session: Session) -> AsyncGenerator[Any, None]:
+    from httpx import ASGITransport, AsyncClient
+    from car_catalog.api import app, get_session
+
+    def override_get_session() -> Generator[Session, None, None]:
+        yield populated_db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        yield client
+    app.dependency_overrides.clear()

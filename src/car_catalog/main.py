@@ -665,6 +665,17 @@ def main() -> None:
         except ApplicationError as err:
             print(f"Application error: {err}", file=sys.stderr)
             sys.exit(1)
+    elif "--run-api" in sys.argv:
+        import uvicorn
+        port = 8000
+        if "--port" in sys.argv:
+            p_idx = sys.argv.index("--port")
+            if len(sys.argv) > p_idx + 1:
+                try:
+                    port = int(sys.argv[p_idx + 1])
+                except ValueError:
+                    port = 8000
+        uvicorn.run("car_catalog.api:app", host="127.0.0.1", port=port, reload=False)
     elif "--oop-demo" in sys.argv:
         run_oop_demo()
     elif "--stream-demo" in sys.argv:

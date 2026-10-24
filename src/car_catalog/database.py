@@ -14,9 +14,13 @@ def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
-def create_database_engine(database_url: str = "sqlite:///cars.db", echo: bool = False) -> Engine:
+def create_database_engine(database_url: str = "sqlite:///cars.db", echo: bool = False, **kwargs: Any) -> Engine:
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-    return create_engine(database_url, echo=echo, connect_args=connect_args)
+    if "connect_args" in kwargs:
+        passed_args = kwargs.pop("connect_args")
+        if isinstance(passed_args, dict):
+            connect_args.update(passed_args)
+    return create_engine(database_url, echo=echo, connect_args=connect_args, **kwargs)
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
