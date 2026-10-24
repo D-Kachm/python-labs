@@ -178,6 +178,7 @@ class TestPipelineAndCompatibility(unittest.TestCase):
 
             first = find_first_car(build_streaming_pipeline(p), lambda c: c.price > 50000.0)
             self.assertIsNotNone(first)
+            assert first is not None
             self.assertEqual(first.id, 3)
         finally:
             p.unlink()
