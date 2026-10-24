@@ -26,3 +26,10 @@ class Car:
             "price": self.price,
             "mileage": self.mileage,
         }
+
+    def replace(self, **changes: Any) -> "Car":
+        from dataclasses import replace as dc_replace
+        return dc_replace(self, **changes)
+
+    def to_csv_row(self) -> list[str]:
+        return [str(self.id), self.brand, self.model, str(self.year), f"{self.price:.2f}", f"{self.mileage:.1f}"]

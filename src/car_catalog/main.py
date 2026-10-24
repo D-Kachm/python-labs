@@ -1,5 +1,7 @@
 import sys
 from collections import deque
+from itertools import islice
+from pathlib import Path
 from time import perf_counter
 from typing import Any
 from car_catalog.analytics import (
@@ -13,9 +15,21 @@ from car_catalog.analytics import (
     get_price_range,
     sort_by_price,
 )
+from car_catalog.batches import batched_cars
+from car_catalog.benchmark import (
+    benchmark_early_termination,
+    generate_cars_csv,
+    run_streaming_benchmark,
+)
 from car_catalog.data import DEMO_CARS, generate_cars
 from car_catalog.decorators import measure_time, repeat
+from car_catalog.iterators import CarCatalogIterable, recursive_flatten
 from car_catalog.models import Car
+from car_catalog.pipeline import (
+    build_streaming_pipeline,
+    export_stream_to_csv,
+    find_first_car,
+)
 from car_catalog.processors import (
     count_by_brand,
     create_car_index,
@@ -27,6 +41,16 @@ from car_catalog.processors import (
     get_unique_brands,
     group_by_brand,
     group_by_brand_and_year,
+)
+from car_catalog.readers import infinite_car_stream, read_multiple_files
+from car_catalog.streaming_analytics import (
+    streaming_accumulate_prices,
+    streaming_average_price,
+    streaming_find_lowest_mileage,
+    streaming_find_most_expensive,
+    streaming_groupby_brand,
+    streaming_pairwise_price_diff,
+    streaming_statistics,
 )
 
 def print_cars(title: str, items: list[Car]) -> None:
@@ -133,22 +157,143 @@ def run_demo(cars: list[Car]) -> None:
     for k, v in summary.items():
         print(f"   {k}: {v}")
 
+def run_stream_demo(demo_path: Path | None = None) -> None:
+    if demo_path is None:
+        demo_path = Path("data/demo_stream_cars.csv")
+    demo_path.parent.mkdir(parents=True, exist_ok=True)
+    generate_cars_csv(demo_path, 100, invalid_ratio=0.04)
+
+    print("\n" + "=" * 78)
+    print("  ДЕМОНСТРАЦІЯ ПОТОКОВОЇ ОБРОБКИ ДАНИХ (ЛАБОРАТОРНА РОБОТА №3, ВАРІАНТ 5)")
+    print("=" * 78)
+
+    errors: dict[str, int] = {}
+    stream = build_streaming_pipeline(demo_path, error_tracker=errors)
+    first_5 = list(islice(stream, 5))
+    print_cars("1. Перші 5 валідних записів із потоку (islice)", first_5)
+    print(f"   [Потокова валідація]: виявлено та відсіяно некоректних записів: {errors.get('invalid_records', 0)}")
+
+    bmw_pipeline = build_streaming_pipeline(demo_path, brand="BMW", min_year=2015)
+    first_bmw = list(islice(bmw_pipeline, 4))
+    print_cars("2. Фільтрація потоку за маркою ('BMW') та роком (>= 2015)", first_bmw)
+
+    stats_pipeline = build_streaming_pipeline(demo_path)
+    stats = streaming_statistics(stats_pipeline)
+    print("\n3. Потокова однопрохідна агрегація (Streaming Statistics):")
+    print(f"   Кількість валідних авто: {stats['count']}")
+    print(f"   Загальна ринкова вартість: {stats['total_value']:.2f}$")
+    print(f"   Streaming Average Price: {stats['average_price']:.2f}$")
+    print(f"   Діапазон цін: від {stats['min_price']:.2f}$ до {stats['max_price']:.2f}$")
+    if stats["most_expensive"]:
+        print(f"   Найдорожчий автомобіль: {stats['most_expensive'].full_name} ({stats['most_expensive'].price:.2f}$)")
+    if stats["lowest_mileage"]:
+        print(f"   Автомобіль з найменшим пробігом: {stats['lowest_mileage'].full_name} ({stats['lowest_mileage'].mileage:.1f} км)")
+
+    batch_pipeline = build_streaming_pipeline(demo_path)
+    print("\n4. Пакетна обробка потоку (Batching по 10 авто):")
+    for batch_idx, batch in enumerate(islice(batched_cars(batch_pipeline, batch_size=10), 3), 1):
+        prices_sum = sum(c.price for c in batch)
+        print(f"   Батч #{batch_idx}: {len(batch)} авто | Сума вартості: {prices_sum:.2f}$ | Моделі: {', '.join(c.model for c in batch[:3])}...")
+
+    early_pipeline = build_streaming_pipeline(demo_path)
+    target = find_first_car(early_pipeline, lambda c: c.price > 6000.0)
+    print("\n5. Lazy Search із Early Termination (перший автомобіль з ціною > 6 000$):")
+    if target:
+        print(f"   Знайдено: {target.full_name} (ID: {target.id}, Рік: {target.year}, Ціна: {target.price:.2f}$)")
+
+
+    infinite_stream = infinite_car_stream(start_id=1000)
+    infinite_sample = list(islice(infinite_stream, 3))
+    print_cars("6. Генерація нескінченного потоку (infinite generator + islice)", infinite_sample)
+
+    group_pipeline = build_streaming_pipeline(demo_path)
+    grouped = streaming_groupby_brand(islice(group_pipeline, 20))
+    print("\n7. Групування через itertools.groupby (перші 20 авто після сортування за маркою):")
+    for b_name, b_items in grouped[:4]:
+        print(f"   Марка '{b_name}' ({len(b_items)} шт.): {', '.join(c.model for c in b_items)}")
+
+    pair_pipeline = build_streaming_pipeline(demo_path)
+    pair_sample = list(islice(streaming_pairwise_price_diff(pair_pipeline), 3))
+    print("\n8. Аналіз дельти цін між сусідніми авто (itertools.pairwise):")
+    for prev_c, curr_c, diff in pair_sample:
+        sign = "+" if diff >= 0 else ""
+        print(f"   {prev_c.full_name} ({prev_c.price:.0f}$) -> {curr_c.full_name} ({curr_c.price:.0f}$) | Різниця: {sign}{diff:.2f}$")
+
+    acc_pipeline = build_streaming_pipeline(demo_path)
+    cum_prices = list(islice(streaming_accumulate_prices(acc_pipeline), 4))
+    print("\n9. Кумулятивна вартість (itertools.accumulate):", [f"{p:.2f}$" for p in cum_prices])
+
+    export_path = Path("data/demo_export.csv")
+    export_pipeline = build_streaming_pipeline(demo_path, min_year=2020)
+    exported_count = export_stream_to_csv(export_pipeline, export_path)
+    print(f"\n10. Потоковий експорт у новий CSV файл: експортовано {exported_count} авто у {export_path}")
+
+    custom_iter = CarCatalogIterable(DEMO_CARS)
+    print(f"\n11. Власний ітераторний клас CarCatalogIterator: довжина {len(custom_iter)}")
+    first_two = [c.full_name for c in islice(iter(custom_iter), 2)]
+    print(f"    Перші два авто через custom iterator: {', '.join(first_two)}")
+
+    nested_data = [DEMO_CARS[0], [DEMO_CARS[1], [DEMO_CARS[2], DEMO_CARS[3]]]]
+    flattened = list(recursive_flatten(nested_data))
+    print(f"\n12. Рекурсивний генератор з yield from (flattening): розгорнуто {len(flattened)} об'єктів")
+
+def run_stream_benchmark_cli() -> None:
+    print("\n" + "=" * 80)
+    print("  ЕКСПЕРИМЕНТАЛЬНЕ ПОРІВНЯННЯ: Eager Evaluation проти Lazy Streaming Pipeline")
+    print("  (Дослідження часу, оперативної пам'яті, TTFR та раннього завершення)")
+    print("=" * 80)
+
+    sizes = [10_000, 100_000, 500_000]
+    results = run_streaming_benchmark(sizes)
+
+    print("\nТаблиця 1: Порівняння тривалості обробки та пікового споживання пам'яті:")
+    print("-" * 88)
+    print(f"{'К-сть рядків':>12} | {'Eager Час (с)':>14} | {'Lazy Час (с)':>13} | {'Eager RAM (KiB)':>16} | {'Lazy RAM (KiB)':>15} | {'Економія RAM':>14}")
+    print("-" * 88)
+    for r in results:
+        print(f"{r['size']:12,d} | {r['eager_time']:14.4f} | {r['lazy_time']:13.4f} | {r['eager_peak_kib']:16.1f} | {r['lazy_peak_kib']:15.1f} | {r['memory_ratio']:13.1f}x")
+    print("-" * 88)
+
+    print("\nТаблиця 2: Порівняння Time to First Result (TTFR):")
+    print("-" * 65)
+    print(f"{'К-сть рядків':>12} | {'Eager TTFR (с)':>16} | {'Lazy TTFR (с)':>15} | {'Прискорення':>12}")
+    print("-" * 65)
+    for r in results:
+        print(f"{r['size']:12,d} | {r['eager_ttfr']:16.6f} | {r['lazy_ttfr']:15.6f} | {r['speedup_ttfr']:11.1f}x")
+    print("-" * 65)
+
+    print("\nДослідження Early Termination (пошук першого запису у файлі на 100 000 записів):")
+    early_file = Path("data/cars_100000.csv")
+    if not early_file.exists():
+        generate_cars_csv(early_file, 100_000)
+    early_res = benchmark_early_termination(early_file)
+    print(f"  Eager час: {early_res['eager_time']:.6f} с | Пікова пам'ять: {early_res['eager_peak_kib']:.1f} KiB")
+    print(f"  Lazy час:  {early_res['lazy_time']:.6f} с | Пікова пам'ять: {early_res['lazy_peak_kib']:.1f} KiB")
+    print(f"  Прискорення: {early_res['speedup']:.1f}x | Економія пам'яті: {early_res['memory_saving_ratio']:.1f}x")
+    print("=" * 80)
+
 def print_menu() -> None:
-    print("\n--- Меню каталогу автомобілів (Лабораторна робота №2) ---")
-    print("1. Показати всі автомобілі")
-    print("2. Пошук за маркою")
-    print("3. Фільтрація за роком")
-    print("4. Пошук за ID (через O(1) dict index)")
-    print("5. Унікальні марки (set) та підрахунок кількості (Counter)")
-    print("6. Групування автомобілів за марками (defaultdict)")
-    print("7. Загальна аналітика (середня ціна, екстремуми, кортеж діапазону)")
-    print("8. Сортування за ціною (lambda)")
-    print("9. Фільтрація за діапазоном цін (closure)")
-    print("10. Демонстрація функцій *args та **kwargs")
-    print("11. Історія останніх операцій (deque)")
-    print("12. Запуск експериментального бенчмарку (1k, 10k, 100k)")
-    print("13. Вивести повну демонстрацію всіх функцій")
-    print("14. Вихід")
+    print("\n--- Меню каталогу автомобілів (Лабораторні роботи №1 - №3) ---")
+    print("  [Лабораторна робота №2 - Структури даних]")
+    print("   1. Показати всі автомобілі")
+    print("   2. Пошук за маркою")
+    print("   3. Фільтрація за роком")
+    print("   4. Пошук за ID (через O(1) dict index)")
+    print("   5. Унікальні марки (set) та підрахунок кількості (Counter)")
+    print("   6. Групування автомобілів за марками (defaultdict)")
+    print("   7. Загальна аналітика (середня ціна, екстремуми, кортеж діапазону)")
+    print("   8. Сортування за ціною (lambda)")
+    print("   9. Фільтрація за діапазоном цін (closure)")
+    print("  10. Демонстрація функцій *args та **kwargs")
+    print("  11. Історія останніх операцій (deque)")
+    print("  12. Запуск бенчмарку O(n) list проти O(1) dict (Лаб 2)")
+    print("  13. Повна демонстрація функціоналу Лаб 2")
+    print("  [Лабораторна робота №3 - Ітератори, генератори та потоки]")
+    print("  14. Повна потокова демонстрація конвеєра обробки даних (Лаб 3)")
+    print("  15. Експериментальний бенчмарк: Eager vs Lazy (10k, 100k, 500k записів)")
+    print("  16. Демонстрація пакетної обробки (Batching через islice)")
+    print("  17. Генерація великого тестового набору даних CSV")
+    print("  18. Вихід")
 
 def run_menu(cars: list[Car]) -> None:
     history: deque[str] = deque(maxlen=10)
@@ -156,7 +301,7 @@ def run_menu(cars: list[Car]) -> None:
 
     while True:
         print_menu()
-        cmd = input("Оберіть команду (1-14): ").strip()
+        cmd = input("Оберіть команду (1-18): ").strip()
         history.append(f"Команда {cmd}")
 
         if cmd == "1":
@@ -209,7 +354,7 @@ def run_menu(cars: list[Car]) -> None:
             if expensive:
                 print(f"Найдорожче авто: {expensive.full_name} ({expensive.price}$)")
             if lowest_m:
-                print(f"Найменший пробіг: {lowest_m.full_name} ({lowest_m.mileage} км)")
+                print(f"Найменший пробіг: {lowest_m.full_name} ({lowest_mileage_car(cars).mileage if lowest_m else 0} км)")
             print(f"Ціновий діапазон (tuple): min={p_range[0]}$, max={p_range[1]}$")
         elif cmd == "8":
             rev = input("Сортувати за спаданням? (y/n): ").strip().lower() == "y"
@@ -240,6 +385,25 @@ def run_menu(cars: list[Car]) -> None:
         elif cmd == "13":
             run_demo(cars)
         elif cmd == "14":
+            run_stream_demo()
+        elif cmd == "15":
+            run_stream_benchmark_cli()
+        elif cmd == "16":
+            batch_p = build_streaming_pipeline(Path("data/demo_stream_cars.csv") if Path("data/demo_stream_cars.csv").exists() else Path("data/cars_10000.csv"))
+            print("\nДемонстрація batching (порціями по 5):")
+            for i, b in enumerate(islice(batched_cars(batch_p, 5), 3), 1):
+                print(f"  Батч #{i}: {[c.full_name for c in b]}")
+        elif cmd == "17":
+            try:
+                cnt_str = input("Введіть кількість записів (за замовчуванням 100000): ").strip()
+                cnt = int(cnt_str) if cnt_str else 100_000
+                target_p = Path(f"data/cars_{cnt}.csv")
+                print(f"Генерація {cnt} записів у {target_p}...")
+                generate_cars_csv(target_p, cnt)
+                print("Генерацію завершено успішно.")
+            except ValueError:
+                print("Помилка: введіть ціле число.")
+        elif cmd == "18":
             print("Роботу завершено. До побачення!")
             break
         else:
@@ -247,10 +411,26 @@ def run_menu(cars: list[Car]) -> None:
 
 def main() -> None:
     cars = list(DEMO_CARS)
-    if "--demo" in sys.argv:
+    if "--stream-demo" in sys.argv:
+        run_stream_demo()
+    elif "--stream-benchmark" in sys.argv:
+        run_stream_benchmark_cli()
+    elif "--demo" in sys.argv:
         run_demo(cars)
     elif "--benchmark" in sys.argv:
         run_benchmark()
+    elif "--generate-dataset" in sys.argv:
+        idx = sys.argv.index("--generate-dataset")
+        count = 100_000
+        if len(sys.argv) > idx + 1:
+            try:
+                count = int(sys.argv[idx + 1])
+            except ValueError:
+                count = 100_000
+        out = Path(f"data/cars_{count}.csv")
+        print(f"Генерація {count} записів у {out}...")
+        generate_cars_csv(out, count)
+        print("Готово.")
     else:
         run_menu(cars)
 
