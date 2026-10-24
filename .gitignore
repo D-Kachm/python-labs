@@ -8,3 +8,7 @@ dist/
 build/
 *.egg-info/
 .env
+reports/
+report/
+data/
+*.csv
