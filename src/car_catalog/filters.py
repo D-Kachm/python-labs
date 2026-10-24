@@ -2,6 +2,7 @@ from collections.abc import Iterable, Iterator
 from typing import Callable
 from car_catalog.models import Car
 
+
 def validate_cars(
     rows: Iterable[dict[str, str]],
     error_tracker: dict[str, int] | None = None,
@@ -38,16 +39,19 @@ def validate_cars(
                 error_tracker["invalid_records"] = error_tracker.get("invalid_records", 0) + 1
             continue
 
+
 def filter_by_brand_stream(cars: Iterable[Car], brand: str) -> Iterator[Car]:
     target = brand.strip().lower()
     for car in cars:
         if car.brand.lower() == target:
             yield car
 
+
 def filter_by_year_stream(cars: Iterable[Car], year: int) -> Iterator[Car]:
     for car in cars:
         if car.year == year:
             yield car
+
 
 def filter_by_brand_and_year_stream(
     cars: Iterable[Car],
@@ -64,6 +68,7 @@ def filter_by_brand_and_year_stream(
         if max_year is not None and car.year > max_year:
             continue
         yield car
+
 
 def filter_cars_stream(cars: Iterable[Car], predicate: Callable[[Car], bool]) -> Iterator[Car]:
     for car in cars:

@@ -6,6 +6,7 @@ from car_catalog.criteria import BrandCriteria
 from car_catalog.models import Car, ElectricCar, Vehicle, VehicleCatalog
 from car_catalog.value_objects import Mileage, Money, VIN
 
+
 @pytest.mark.unit
 def test_car_creation_and_attributes(sample_car: Car) -> None:
     assert sample_car.id == 1
@@ -18,6 +19,7 @@ def test_car_creation_and_attributes(sample_car: Car) -> None:
     assert sample_car.age == 2026 - 2021
     assert sample_car.to_tuple() == (1, "Toyota", "Camry", 2021, 26000.0, 45000.0)
     assert sample_car.to_csv_row() == ["1", "Toyota", "Camry", "2021", "26000.00", "45000.0"]
+
 
 @pytest.mark.unit
 def test_car_setters_and_validation(sample_car: Car) -> None:
@@ -34,6 +36,7 @@ def test_car_setters_and_validation(sample_car: Car) -> None:
     sample_car.price = 26000.0
     sample_car.mileage = 45000.0
 
+
 @pytest.mark.unit
 def test_electric_car_creation_and_specifics(sample_electric_car: ElectricCar) -> None:
     assert sample_electric_car.id == 2
@@ -45,12 +48,14 @@ def test_electric_car_creation_and_specifics(sample_electric_car: ElectricCar) -
     assert d["battery_capacity"] == pytest.approx(75.0)
     assert d["range_km"] == pytest.approx(500.0)
 
+
 @pytest.mark.unit
 def test_electric_car_boundary_exceptions() -> None:
     with pytest.raises(ValueError, match="Battery capacity must be strictly positive"):
         ElectricCar(10, "Tesla", "Model S", 2022, 90000.0, 5000.0, 0.0, 400.0)
     with pytest.raises(ValueError, match="Range must be strictly positive"):
         ElectricCar(11, "Tesla", "Model S", 2022, 90000.0, 5000.0, 100.0, 0.0)
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
@@ -65,6 +70,7 @@ def test_car_valid_boundary_years(car_factory: Callable[..., Car], year: int, ex
     car = car_factory(year=year)
     assert car.year == expected
 
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "invalid_year",
@@ -77,6 +83,7 @@ def test_car_valid_boundary_years(car_factory: Callable[..., Car], year: int, ex
 def test_car_invalid_boundary_years(car_factory: Callable[..., Car], invalid_year: int) -> None:
     with pytest.raises(ValueError, match="Invalid manufacturing year"):
         car_factory(year=invalid_year)
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
@@ -91,15 +98,18 @@ def test_car_price_valid_boundary(car_factory: Callable[..., Car], price: float,
     car = car_factory(price=price)
     assert car.price == pytest.approx(expected)
 
+
 @pytest.mark.unit
 def test_car_negative_price_raises_error(car_factory: Callable[..., Car]) -> None:
     with pytest.raises(ValueError, match="Price cannot be negative"):
         car_factory(price=-0.01)
 
+
 @pytest.mark.unit
 def test_car_negative_mileage_raises_error(car_factory: Callable[..., Car]) -> None:
     with pytest.raises(ValueError, match="Mileage cannot be negative"):
         car_factory(mileage=-1.0)
+
 
 @pytest.mark.unit
 def test_car_empty_brand_or_model_raises_error(car_factory: Callable[..., Car]) -> None:
@@ -108,12 +118,14 @@ def test_car_empty_brand_or_model_raises_error(car_factory: Callable[..., Car]) 
     with pytest.raises(ValueError, match="Brand and model cannot be empty"):
         car_factory(model="")
 
+
 @pytest.mark.unit
 def test_car_negative_or_zero_id_raises_error(car_factory: Callable[..., Car]) -> None:
     with pytest.raises(ValueError, match="ID must be positive"):
         car_factory(car_id=0)
     with pytest.raises(ValueError, match="ID must be positive"):
         car_factory(car_id=-5)
+
 
 @pytest.mark.unit
 def test_car_replace_immutability(sample_car: Car) -> None:
@@ -124,12 +136,14 @@ def test_car_replace_immutability(sample_car: Car) -> None:
     assert sample_car.price == pytest.approx(26000.0)
     assert sample_car.mileage == pytest.approx(45000.0)
 
+
 @pytest.mark.unit
 def test_electric_car_replace(sample_electric_car: ElectricCar) -> None:
     updated = sample_electric_car.replace(battery_capacity=82.0, range_km=550.0)
     assert updated.battery_capacity == pytest.approx(82.0)
     assert updated.range_km == pytest.approx(550.0)
     assert sample_electric_car.battery_capacity == pytest.approx(75.0)
+
 
 @pytest.mark.unit
 def test_car_dunder_methods(sample_car: Car, car_factory: Callable[..., Car]) -> None:
@@ -144,6 +158,7 @@ def test_car_dunder_methods(sample_car: Car, car_factory: Callable[..., Car]) ->
     assert (sample_car == "not_a_car") is False
     not_car: Any = "not_a_car"
     assert sample_car.__lt__(not_car) is NotImplemented
+
 
 @pytest.mark.unit
 def test_vehicle_catalog_collection(sample_cars_list: list[Vehicle], sample_car: Car) -> None:
@@ -189,6 +204,7 @@ def test_vehicle_catalog_collection(sample_cars_list: list[Vehicle], sample_car:
     assert empty_cat.lowest_mileage() is None
     assert empty_cat.average_price() == pytest.approx(0.0)
 
+
 @pytest.mark.unit
 def test_value_object_money() -> None:
     m1 = Money(100.50, "USD")
@@ -213,6 +229,7 @@ def test_value_object_money() -> None:
     with pytest.raises(ValueError, match="Currency mismatch"):
         _ = m1 < Money(50.0, "EUR")
 
+
 @pytest.mark.unit
 def test_value_object_mileage() -> None:
     m1 = Mileage(10000.0)
@@ -229,6 +246,7 @@ def test_value_object_mileage() -> None:
     with pytest.raises(ValueError, match="Mileage unit mismatch"):
         _ = m1 < Mileage(500.0, "miles")
 
+
 @pytest.mark.unit
 def test_value_object_vin() -> None:
     valid_vin = "1HGCR2F83HA000000"
@@ -240,6 +258,7 @@ def test_value_object_vin() -> None:
         VIN("AB")
     with pytest.raises(ValueError, match="Invalid VIN format"):
         VIN("VIN#WITH*SYMBOL")
+
 
 @pytest.mark.unit
 def test_discount_abstractions() -> None:

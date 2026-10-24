@@ -5,14 +5,17 @@ from car_catalog.value_objects import Money
 
 T = TypeVar("T", bound=HasId)
 
+
 class DiscountPolicy(ABC):
     @abstractmethod
     def apply(self, price: Money) -> Money:
         pass
 
+
 class NoDiscount(DiscountPolicy):
     def apply(self, price: Money) -> Money:
         return price
+
 
 class PercentageDiscount(DiscountPolicy):
     def __init__(self, percent: float) -> None:
@@ -28,6 +31,7 @@ class PercentageDiscount(DiscountPolicy):
         multiplier = 1.0 - (self._percent / 100.0)
         return price * multiplier
 
+
 class ThresholdDiscount(DiscountPolicy):
     def __init__(self, threshold: Money, discount_amount: Money) -> None:
         if threshold.currency != discount_amount.currency:
@@ -42,10 +46,12 @@ class ThresholdDiscount(DiscountPolicy):
             return price - self._discount_amount
         return price
 
+
 class AbstractSearchCriteria(ABC):
     @abstractmethod
     def matches(self, vehicle: Any) -> bool:
         pass
+
 
 class Repository(ABC, Generic[T]):
     @abstractmethod

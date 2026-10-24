@@ -4,34 +4,28 @@ from pathlib import Path
 from itertools import islice
 from car_catalog.models import Car
 from car_catalog.readers import infinite_car_stream, read_lines, read_multiple_files
-from car_catalog.parsers import clean_lines, parse_csv_rows
+from car_catalog.parsers import clean_lines
 from car_catalog.filters import (
     filter_by_brand_and_year_stream,
-    filter_by_brand_stream,
-    filter_by_year_stream,
-    filter_cars_stream,
     validate_cars,
 )
 from car_catalog.transformations import apply_price_discount, normalize_car_names
 from car_catalog.batches import batched_cars
-from car_catalog.iterators import CarCatalogIterable, CarCatalogIterator, recursive_flatten
+from car_catalog.iterators import CarCatalogIterable, recursive_flatten
 from car_catalog.streaming_analytics import (
     streaming_accumulate_prices,
     streaming_average_price,
-    streaming_find_lowest_mileage,
-    streaming_find_most_expensive,
-    streaming_groupby_brand,
     streaming_pairwise_price_diff,
     streaming_statistics,
 )
 from car_catalog.pipeline import (
     build_streaming_pipeline,
-    export_stream_to_csv,
     find_first_car,
 )
-from car_catalog.analytics import calculate_average_price, find_most_expensive_car
+from car_catalog.analytics import calculate_average_price
 from car_catalog.data import DEMO_CARS, generate_cars
 from car_catalog.processors import create_car_index, filter_by_brand
+
 
 class TestStreamingReadersAndParsers(unittest.TestCase):
     def test_read_lines_and_clean(self) -> None:
@@ -49,8 +43,10 @@ class TestStreamingReadersAndParsers(unittest.TestCase):
             f_path.unlink()
 
     def test_read_multiple_files(self) -> None:
-        with tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as f1, \
-             tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as f2:
+        with (
+            tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as f1,
+            tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as f2,
+        ):
             f1.write("a\nb\n")
             f2.write("c\nd\n")
             p1 = Path(f1.name)
@@ -70,6 +66,7 @@ class TestStreamingReadersAndParsers(unittest.TestCase):
         self.assertEqual(first_3[0].id, 10)
         self.assertEqual(first_3[1].id, 11)
         self.assertEqual(first_3[2].id, 12)
+
 
 class TestStreamingFiltersAndValidation(unittest.TestCase):
     def test_validate_cars(self) -> None:
@@ -96,6 +93,7 @@ class TestStreamingFiltersAndValidation(unittest.TestCase):
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0].model, "A6")
 
+
 class TestTransformationsAndBatches(unittest.TestCase):
     def test_normalize_car_names(self) -> None:
         cars = [Car(1, " audi ", "  a6 avant  ", 2020, 20000.0, 10000.0)]
@@ -115,6 +113,7 @@ class TestTransformationsAndBatches(unittest.TestCase):
         self.assertEqual(len(batches[0]), 3)
         self.assertEqual(len(batches[1]), 3)
         self.assertEqual(len(batches[2]), 1)
+
 
 class TestIteratorsAndAnalytics(unittest.TestCase):
     def test_custom_iterator_and_iterable(self) -> None:
@@ -160,6 +159,7 @@ class TestIteratorsAndAnalytics(unittest.TestCase):
         accum = list(streaming_accumulate_prices(cars))
         self.assertEqual(accum, [100.0, 250.0, 380.0])
 
+
 class TestPipelineAndCompatibility(unittest.TestCase):
     def test_end_to_end_pipeline(self) -> None:
         with tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as f:
@@ -193,6 +193,7 @@ class TestPipelineAndCompatibility(unittest.TestCase):
         self.assertTrue(avg > 0)
         filtered = filter_by_brand(dataset, "Audi")
         self.assertTrue(isinstance(filtered, list))
+
 
 if __name__ == "__main__":
     unittest.main()

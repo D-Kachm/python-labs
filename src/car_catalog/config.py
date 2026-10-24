@@ -1,9 +1,11 @@
+from functools import lru_cache
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import yaml
 from car_catalog.exceptions import ConfigurationError
+
 
 @dataclass(frozen=True, slots=True)
 class FilterConfig:
@@ -12,6 +14,7 @@ class FilterConfig:
     min_price: float = 0.0
     max_price: float = 1_000_000_000.0
 
+
 @dataclass(frozen=True, slots=True)
 class ProcessingConfig:
     skip_invalid: bool = True
@@ -19,21 +22,25 @@ class ProcessingConfig:
     error_csv_path: Path | None = None
     filters: FilterConfig = field(default_factory=FilterConfig)
 
+
 @dataclass(frozen=True, slots=True)
 class LoggingConfig:
     level: str = "INFO"
     path: Path = field(default_factory=lambda: Path("logs/application.log"))
     console: bool = True
 
+
 @dataclass(frozen=True, slots=True)
 class InputConfig:
     path: Path = field(default_factory=lambda: Path("data/cars.csv"))
     format: str = "csv"
 
+
 @dataclass(frozen=True, slots=True)
 class OutputConfig:
     path: Path = field(default_factory=lambda: Path("output/cars.json"))
     format: str = "json"
+
 
 @dataclass(frozen=True, slots=True)
 class AppConfig:
@@ -41,6 +48,7 @@ class AppConfig:
     output: OutputConfig
     processing: ProcessingConfig
     logging: LoggingConfig
+
 
 def validate_config(config: AppConfig) -> None:
     if not config.input.path.exists():
@@ -58,6 +66,7 @@ def validate_config(config: AppConfig) -> None:
         raise ConfigurationError(f"Unsupported input format: {config.input.format}")
     if config.output.format.lower() not in valid_formats:
         raise ConfigurationError(f"Unsupported output format: {config.output.format}")
+
 
 def load_config(path: Path | str) -> AppConfig:
     cfg_path = Path(path)
@@ -93,7 +102,11 @@ def load_config(path: Path | str) -> AppConfig:
         )
 
         skip_inv_env = os.environ.get("APP_SKIP_INVALID")
-        skip_invalid = (skip_inv_env.lower() in {"true", "1", "yes"}) if skip_inv_env is not None else bool(proc_data.get("skip_invalid", True))
+        skip_invalid = (
+            (skip_inv_env.lower() in {"true", "1", "yes"})
+            if skip_inv_env is not None
+            else bool(proc_data.get("skip_invalid", True))
+        )
         backup_existing = bool(proc_data.get("backup_existing", False))
         err_path_val = proc_data.get("error_csv_path")
         error_csv_path = Path(err_path_val) if err_path_val else None
@@ -127,3 +140,22 @@ def load_config(path: Path | str) -> AppConfig:
 
     validate_config(config)
     return config
+
+
+class Settings(BaseSettings):
+    app_name: str = "Car Catalog"
+    environment: str = "development"
+    database_url: str = "sqlite:///cars.db"
+    log_level: str = "INFO"
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

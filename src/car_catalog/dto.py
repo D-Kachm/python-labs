@@ -5,6 +5,7 @@ from car_catalog.specifications import VehicleSpecification
 
 T = TypeVar("T")
 
+
 class VehiclePayload(TypedDict):
     id: int
     brand: str
@@ -15,6 +16,7 @@ class VehiclePayload(TypedDict):
     currency: NotRequired[str]
     body_type: NotRequired[str]
     horsepower: NotRequired[int]
+
 
 class ElectricVehiclePayload(TypedDict):
     id: int
@@ -27,6 +29,7 @@ class ElectricVehiclePayload(TypedDict):
     range_km: float
     currency: NotRequired[str]
 
+
 @dataclass
 class Result(Generic[T]):
     value: T | None
@@ -35,6 +38,7 @@ class Result(Generic[T]):
     @property
     def success(self) -> bool:
         return self.error is None
+
 
 def vehicle_from_payload(payload: VehiclePayload) -> Car:
     spec: VehicleSpecification | None = None
@@ -56,6 +60,7 @@ def vehicle_from_payload(payload: VehiclePayload) -> Car:
         specification=spec,
     )
 
+
 def electric_vehicle_from_payload(payload: ElectricVehiclePayload) -> ElectricCar:
     spec = VehicleSpecification(
         engine_type="Electric",
@@ -75,6 +80,7 @@ def electric_vehicle_from_payload(payload: ElectricVehiclePayload) -> ElectricCa
         range_km=payload["range_km"],
         specification=spec,
     )
+
 
 def vehicle_to_payload(vehicle: Vehicle) -> VehiclePayload:
     payload: VehiclePayload = {

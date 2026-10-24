@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,6 +11,7 @@ from car_catalog.repositories import (
     bulk_update_prices_by_manufacturer,
     find_cars_by_manufacturer_dbapi,
 )
+
 
 @pytest.mark.integration
 def test_manufacturer_repository_crud(db_session: Session) -> None:
@@ -38,6 +38,7 @@ def test_manufacturer_repository_crud(db_session: Session) -> None:
     assert deleted is True
     assert repo.get_by_id(saved.id) is None
     assert repo.delete(9999) is False
+
 
 @pytest.mark.integration
 def test_car_repository_crud(db_session: Session) -> None:
@@ -85,6 +86,7 @@ def test_car_repository_crud(db_session: Session) -> None:
     assert c_repo.get_by_id(saved_car.id) is None
     assert c_repo.delete(9999) is False
 
+
 @pytest.mark.integration
 def test_manufacturer_car_relationship_and_cascade(db_session: Session) -> None:
     m_repo = ManufacturerRepository(db_session)
@@ -116,6 +118,7 @@ def test_manufacturer_car_relationship_and_cascade(db_session: Session) -> None:
     assert c_repo.get_by_id(car1.id) is None
     assert c_repo.get_by_id(car2.id) is None
 
+
 @pytest.mark.integration
 def test_car_repository_search_and_filters(populated_db_session: Session) -> None:
     repo = CarRepository(populated_db_session)
@@ -130,6 +133,7 @@ def test_car_repository_search_and_filters(populated_db_session: Session) -> Non
 
     by_year_range = repo.filter_by_year_range(2021, 2023)
     assert len(by_year_range) == 3
+
 
 @pytest.mark.integration
 def test_car_repository_aggregates(populated_db_session: Session) -> None:
@@ -149,6 +153,7 @@ def test_car_repository_aggregates(populated_db_session: Session) -> None:
     expected_avg = (26000.0 + 75000.0 + 42000.0 + 20000.0) / 4
     assert avg_p == pytest.approx(expected_avg)
 
+
 @pytest.mark.integration
 def test_manufacturer_grouped_statistics(populated_db_session: Session) -> None:
     repo = CarRepository(populated_db_session)
@@ -160,6 +165,7 @@ def test_manufacturer_grouped_statistics(populated_db_session: Session) -> None:
     assert toyota_stat["min_price"] == pytest.approx(20000.0)
     assert toyota_stat["max_price"] == pytest.approx(26000.0)
     assert toyota_stat["average_price"] == pytest.approx(23000.0)
+
 
 @pytest.mark.integration
 def test_unique_vin_constraint(db_session: Session) -> None:
@@ -191,6 +197,7 @@ def test_unique_vin_constraint(db_session: Session) -> None:
 
     db_session.rollback()
 
+
 @pytest.mark.integration
 def test_transaction_bulk_update_success(populated_db_session: Session) -> None:
     m_repo = ManufacturerRepository(populated_db_session)
@@ -210,6 +217,7 @@ def test_transaction_bulk_update_success(populated_db_session: Session) -> None:
     prices = {c.model: c.price for c in cars}
     assert prices["Camry"] == pytest.approx(28600.0)
     assert prices["Corolla"] == pytest.approx(22000.0)
+
 
 @pytest.mark.integration
 def test_transaction_bulk_update_rollback_on_failure(populated_db_session: Session) -> None:
@@ -235,6 +243,7 @@ def test_transaction_bulk_update_rollback_on_failure(populated_db_session: Sessi
         populated_db_session.refresh(c)
         assert c.price == pytest.approx(initial_prices[c.model])
 
+
 @pytest.mark.integration
 def test_dbapi_parameterized_search(tmp_path: Path) -> None:
     db_file = tmp_path / "dbapi_test.db"
@@ -242,19 +251,39 @@ def test_dbapi_parameterized_search(tmp_path: Path) -> None:
     init_database(engine)
 
     from sqlalchemy.orm import sessionmaker
+
     SessionMaker = sessionmaker(bind=engine)
     with SessionMaker() as session:
         m_repo = ManufacturerRepository(session)
         c_repo = CarRepository(session)
         ford = m_repo.add(Manufacturer(name="Ford", country="USA"))
-        c_repo.add(CarEntity(manufacturer_id=ford.id, model="Mustang", year=2021, price=40000.0, mileage=15000.0, vin="1FA6P8CF5H5111111"))
-        c_repo.add(CarEntity(manufacturer_id=ford.id, model="F-150", year=2022, price=55000.0, mileage=22000.0, vin="1FTFW1E84MF111112"))
+        c_repo.add(
+            CarEntity(
+                manufacturer_id=ford.id,
+                model="Mustang",
+                year=2021,
+                price=40000.0,
+                mileage=15000.0,
+                vin="1FA6P8CF5H5111111",
+            )
+        )
+        c_repo.add(
+            CarEntity(
+                manufacturer_id=ford.id,
+                model="F-150",
+                year=2022,
+                price=55000.0,
+                mileage=22000.0,
+                vin="1FTFW1E84MF111112",
+            )
+        )
 
     results = find_cars_by_manufacturer_dbapi(db_file.as_posix(), "Ford")
     assert len(results) == 2
     assert results[0][1] == "Ford"
     assert results[0][2] == "Mustang"
     assert results[1][2] == "F-150"
+
 
 @pytest.mark.integration
 def test_domain_entity_conversion(populated_db_session: Session) -> None:
@@ -269,9 +298,11 @@ def test_domain_entity_conversion(populated_db_session: Session) -> None:
     assert domain_car.model == entity.model
     assert domain_car.price == pytest.approx(entity.price)
 
+
 @pytest.mark.integration
 def test_session_scope_lifecycle(tmp_path: Path) -> None:
     from car_catalog.database import create_session_factory, drop_database, session_scope
+
     db_file = tmp_path / "scope_test.db"
     engine = create_database_engine(f"sqlite:///{db_file.as_posix()}")
     init_database(engine)

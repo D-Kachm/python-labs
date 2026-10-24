@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import Any
 from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from car_catalog.database import Base
 from car_catalog.models import Car
+
 
 class Manufacturer(Base):
     __tablename__ = "manufacturers"
@@ -19,6 +19,7 @@ class Manufacturer(Base):
 
     def __repr__(self) -> str:
         return f"Manufacturer(id={self.id!r}, name={self.name!r}, country={self.country!r})"
+
 
 class CarEntity(Base):
     __tablename__ = "cars"

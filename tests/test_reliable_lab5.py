@@ -1,5 +1,3 @@
-import csv
-import json
 import os
 import tempfile
 import unittest
@@ -25,23 +23,18 @@ from car_catalog.exceptions import (
     StorageError,
 )
 from car_catalog.exporters import (
-    CsvExporter,
     JsonExporter,
-    JsonlExporter,
-    YamlExporter,
     JsonImporter,
     export_cars_csv,
     export_cars_json,
     export_cars_jsonl,
     export_cars_yaml,
-    export_invalid_records_csv,
     get_exporter,
     get_importer,
 )
 from car_catalog.models import Car
 from car_catalog.readers import (
     read_csv_rows,
-    read_file_rows,
     read_json_rows,
     read_jsonl_rows,
     read_yaml_rows,
@@ -54,6 +47,7 @@ from car_catalog.services import (
 )
 from car_catalog.utils import atomic_file_writer, logged_operation, timer
 from car_catalog.validators import parse_car_record
+
 
 class TestExceptionHierarchy(unittest.TestCase):
     def test_inheritance(self) -> None:
@@ -71,9 +65,17 @@ class TestExceptionHierarchy(unittest.TestCase):
         self.assertEqual(err.raw_record, {"id": "1"})
         self.assertEqual(str(err), "Bad price")
 
+
 class TestRecordValidation(unittest.TestCase):
     def test_valid_record_with_vehicle_id(self) -> None:
-        row = {"vehicle_id": "10", "brand": "Audi", "model": "A6", "year": "2021", "price": "35000.0", "mileage": "45000.0"}
+        row = {
+            "vehicle_id": "10",
+            "brand": "Audi",
+            "model": "A6",
+            "year": "2021",
+            "price": "35000.0",
+            "mileage": "45000.0",
+        }
         car = parse_car_record(row, line_number=2)
         self.assertEqual(car.id, 10)
         self.assertEqual(car.brand, "Audi")
@@ -88,58 +90,117 @@ class TestRecordValidation(unittest.TestCase):
         self.assertEqual(car.id, 5)
 
     def test_invalid_vehicle_id(self) -> None:
-        row = {"vehicle_id": "xyz", "brand": "BMW", "model": "X5", "year": "2019", "price": "42000.0", "mileage": "60000.0"}
+        row = {
+            "vehicle_id": "xyz",
+            "brand": "BMW",
+            "model": "X5",
+            "year": "2019",
+            "price": "42000.0",
+            "mileage": "60000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx:
             parse_car_record(row, line_number=4)
         self.assertEqual(ctx.exception.field, "vehicle_id")
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
 
     def test_negative_vehicle_id(self) -> None:
-        row = {"vehicle_id": "-5", "brand": "BMW", "model": "X5", "year": "2019", "price": "42000.0", "mileage": "60000.0"}
+        row = {
+            "vehicle_id": "-5",
+            "brand": "BMW",
+            "model": "X5",
+            "year": "2019",
+            "price": "42000.0",
+            "mileage": "60000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx:
             parse_car_record(row, line_number=5)
         self.assertEqual(ctx.exception.field, "vehicle_id")
 
     def test_empty_brand_and_model(self) -> None:
-        row1 = {"vehicle_id": "1", "brand": "   ", "model": "Focus", "year": "2018", "price": "10000.0", "mileage": "90000.0"}
+        row1 = {
+            "vehicle_id": "1",
+            "brand": "   ",
+            "model": "Focus",
+            "year": "2018",
+            "price": "10000.0",
+            "mileage": "90000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx1:
             parse_car_record(row1, line_number=6)
         self.assertEqual(ctx1.exception.field, "brand")
 
-        row2 = {"vehicle_id": "1", "brand": "Ford", "model": "", "year": "2018", "price": "10000.0", "mileage": "90000.0"}
+        row2 = {
+            "vehicle_id": "1",
+            "brand": "Ford",
+            "model": "",
+            "year": "2018",
+            "price": "10000.0",
+            "mileage": "90000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx2:
             parse_car_record(row2, line_number=7)
         self.assertEqual(ctx2.exception.field, "model")
 
     def test_year_validation_and_chaining(self) -> None:
-        row = {"vehicle_id": "1", "brand": "Ford", "model": "Focus", "year": "bad_year", "price": "10000.0", "mileage": "90000.0"}
+        row = {
+            "vehicle_id": "1",
+            "brand": "Ford",
+            "model": "Focus",
+            "year": "bad_year",
+            "price": "10000.0",
+            "mileage": "90000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx:
             parse_car_record(row, line_number=8)
         self.assertEqual(ctx.exception.field, "year")
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
 
-        row_range = {"vehicle_id": "1", "brand": "Ford", "model": "Focus", "year": "1800", "price": "10000.0", "mileage": "90000.0"}
+        row_range = {
+            "vehicle_id": "1",
+            "brand": "Ford",
+            "model": "Focus",
+            "year": "1800",
+            "price": "10000.0",
+            "mileage": "90000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx_range:
             parse_car_record(row_range, line_number=9)
         self.assertEqual(ctx_range.exception.field, "year")
 
     def test_negative_price_and_mileage(self) -> None:
-        row_price = {"vehicle_id": "1", "brand": "Ford", "model": "Focus", "year": "2018", "price": "-500.0", "mileage": "90000.0"}
+        row_price = {
+            "vehicle_id": "1",
+            "brand": "Ford",
+            "model": "Focus",
+            "year": "2018",
+            "price": "-500.0",
+            "mileage": "90000.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx:
             parse_car_record(row_price, line_number=10)
         self.assertEqual(ctx.exception.field, "price")
 
-        row_mil = {"vehicle_id": "1", "brand": "Ford", "model": "Focus", "year": "2018", "price": "5000.0", "mileage": "-10.0"}
+        row_mil = {
+            "vehicle_id": "1",
+            "brand": "Ford",
+            "model": "Focus",
+            "year": "2018",
+            "price": "5000.0",
+            "mileage": "-10.0",
+        }
         with self.assertRaises(RecordValidationError) as ctx_mil:
             parse_car_record(row_mil, line_number=11)
         self.assertEqual(ctx_mil.exception.field, "mileage")
+
 
 class TestConfigManagement(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.base_path = Path(self.temp_dir.name)
         self.sample_csv = self.base_path / "test_cars.csv"
-        self.sample_csv.write_text("vehicle_id,brand,model,year,price,mileage\n1,Audi,A4,2018,20000.0,50000.0\n", encoding="utf-8")
+        self.sample_csv.write_text(
+            "vehicle_id,brand,model,year,price,mileage\n1,Audi,A4,2018,20000.0,50000.0\n", encoding="utf-8"
+        )
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -204,6 +265,7 @@ logging:
             del os.environ["APP_LOG_LEVEL"]
             del os.environ["APP_SKIP_INVALID"]
 
+
 class TestContextManagers(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -246,6 +308,7 @@ class TestContextManagers(unittest.TestCase):
 
         self.assertEqual(target.read_text(encoding="utf-8"), "initial valid data")
         self.assertFalse(target.with_suffix(".txt.tmp").exists())
+
 
 class TestStreamingReadersAndExporters(unittest.TestCase):
     def setUp(self) -> None:
@@ -296,6 +359,7 @@ class TestStreamingReadersAndExporters(unittest.TestCase):
         exporter = get_exporter("json")
         self.assertIsInstance(importer, JsonImporter)
         self.assertIsInstance(exporter, JsonExporter)
+
 
 class TestPipelinesAndModes(unittest.TestCase):
     def setUp(self) -> None:

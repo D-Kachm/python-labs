@@ -4,6 +4,7 @@ from car_catalog.protocols import SearchCriteria
 from car_catalog.specifications import VehicleSpecification
 from car_catalog.value_objects import Mileage, Money
 
+
 class Vehicle(ABC):
     def __init__(
         self,
@@ -126,6 +127,7 @@ class Vehicle(ABC):
     def __str__(self) -> str:
         return f"{self.full_name} ({self.year}) - {self._price:.2f}$ [{self._mileage:.1f} km]"
 
+
 class Car(Vehicle):
     def __init__(
         self,
@@ -157,6 +159,7 @@ class Car(Vehicle):
             mileage=float(changes.get("mileage", self.mileage)),
             specification=changes.get("specification", self.specification),
         )
+
 
 class ElectricCar(Car):
     def __init__(
@@ -218,6 +221,7 @@ class ElectricCar(Car):
             f"⚡ {self.full_name} ({self.year}) [EV {self.battery_capacity}kWh, {self.range_km}km] - "
             f"{self.price:.2f}$ [{self.mileage:.1f} km]"
         )
+
 
 class VehicleCatalog(Sequence[Vehicle]):
     def __init__(self, vehicles: list[Vehicle] | None = None) -> None:

@@ -5,6 +5,7 @@ from car_catalog.config import FilterConfig
 from car_catalog.exporters import JsonExporter
 from car_catalog.services import ImportStatistics, filter_imported_cars, import_cars
 
+
 @pytest.mark.integration
 def test_filter_and_export_pipeline_end_to_end(sample_csv_file: Path, tmp_path: Path) -> None:
     output_file = tmp_path / "filtered_cars.json"

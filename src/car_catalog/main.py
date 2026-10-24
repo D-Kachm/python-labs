@@ -3,12 +3,8 @@ from collections import deque
 from itertools import islice
 from pathlib import Path
 from time import perf_counter
-from typing import Any
 from car_catalog.abstractions import (
-    DiscountPolicy,
-    NoDiscount,
     PercentageDiscount,
-    ThresholdDiscount,
 )
 from car_catalog.analytics import (
     calculate_average_price,
@@ -45,32 +41,24 @@ from car_catalog.benchmark import (
 from car_catalog.comparisons import (
     ComposedVehicleProcessor,
     CsvVehicleProcessor,
-    DecoupledService,
-    TightlyCoupledService,
     VehicleFormatter,
     VehicleParser,
     VehicleValidator,
 )
 from car_catalog.criteria import (
     AndCriteria,
-    BrandAndModelCriteria,
     BrandCriteria,
-    ElectricOnlyCriteria,
     PriceRangeCriteria,
     YearRangeCriteria,
 )
 from car_catalog.data import DEMO_CARS, generate_cars
-from car_catalog.decorators import measure_time, repeat
 from car_catalog.dto import (
-    ElectricVehiclePayload,
-    Result,
     VehiclePayload,
-    electric_vehicle_from_payload,
     vehicle_from_payload,
 )
 from car_catalog.iterators import CarCatalogIterable, recursive_flatten
-from car_catalog.models import Car, ElectricCar, Vehicle, VehicleCatalog
-from car_catalog.notifiers import ConsoleNotifier, RecordingNotifier
+from car_catalog.models import Car, ElectricCar, VehicleCatalog
+from car_catalog.notifiers import ConsoleNotifier
 from car_catalog.pipeline import (
     build_streaming_pipeline,
     export_stream_to_csv,
@@ -88,27 +76,25 @@ from car_catalog.processors import (
     group_by_brand,
     group_by_brand_and_year,
 )
-from car_catalog.protocols import SearchCriteria, VehicleNotifier
-from car_catalog.readers import infinite_car_stream, read_multiple_files
-from car_catalog.repositories import InMemoryRepository, VehicleRepository
+from car_catalog.protocols import SearchCriteria
+from car_catalog.readers import infinite_car_stream
+from car_catalog.repositories import VehicleRepository
 from car_catalog.services import CatalogService
 from car_catalog.specifications import VehicleSpecification
 from car_catalog.streaming_analytics import (
     streaming_accumulate_prices,
-    streaming_average_price,
-    streaming_find_lowest_mileage,
-    streaming_find_most_expensive,
     streaming_groupby_brand,
     streaming_pairwise_price_diff,
     streaming_statistics,
 )
 from car_catalog.value_objects import Mileage, Money, VIN
-from car_catalog.config import AppConfig, load_config
+from car_catalog.config import load_config
 from car_catalog.exceptions import ApplicationError, RecordValidationError
 from car_catalog.logging_config import configure_logging
 from car_catalog.services import run_import_export_pipeline
 from car_catalog.utils import logged_operation
 from car_catalog.validators import parse_car_record
+
 
 def print_cars(title: str, items: list[Car]) -> None:
     print(f"\n{title}")
@@ -117,6 +103,7 @@ def print_cars(title: str, items: list[Car]) -> None:
     print("-" * 75)
     for c in items:
         print(f"{c.id:3} | {c.full_name:22} | {c.year:4} | {c.price:10.2f} | {c.mileage:12.1f}")
+
 
 def run_benchmark() -> list[tuple[int, float, float]]:
     sizes = [1000, 10000, 100000]
@@ -141,6 +128,7 @@ def run_benchmark() -> list[tuple[int, float, float]]:
         print(f"Розмір: {size:6} | Пошук у List: {time_linear:.8f} с | Пошук у Dict: {time_dict:.8f} с")
     print("=" * 65)
     return results
+
 
 def run_demo(cars: list[Car]) -> None:
     print("\n" + "=" * 75)
@@ -189,7 +177,11 @@ def run_demo(cars: list[Car]) -> None:
     search_id = 3
     found_car = find_car_by_id(car_index, search_id)
     print(f"\n11. Пошук за ID={search_id} через dict index O(1):")
-    print(f"   {found_car.full_name} | Рік: {found_car.year} | Ціна: {found_car.price}$" if found_car else "   Не знайдено")
+    print(
+        f"   {found_car.full_name} | Рік: {found_car.year} | Ціна: {found_car.price}$"
+        if found_car
+        else "   Не знайдено"
+    )
 
     price_filter = create_price_filter(15000.0, 50000.0)
     affordable_cars = filter_cars(cars, price_filter)
@@ -213,6 +205,7 @@ def run_demo(cars: list[Car]) -> None:
     print("\n15. Зведений звіт каталогу (Aggregation Summary):")
     for k, v in summary.items():
         print(f"   {k}: {v}")
+
 
 def run_stream_demo(demo_path: Path | None = None) -> None:
     if demo_path is None:
@@ -244,20 +237,23 @@ def run_stream_demo(demo_path: Path | None = None) -> None:
     if stats["most_expensive"]:
         print(f"   Найдорожчий автомобіль: {stats['most_expensive'].full_name} ({stats['most_expensive'].price:.2f}$)")
     if stats["lowest_mileage"]:
-        print(f"   Автомобіль з найменшим пробігом: {stats['lowest_mileage'].full_name} ({stats['lowest_mileage'].mileage:.1f} км)")
+        print(
+            f"   Автомобіль з найменшим пробігом: {stats['lowest_mileage'].full_name} ({stats['lowest_mileage'].mileage:.1f} км)"
+        )
 
     batch_pipeline = build_streaming_pipeline(demo_path)
     print("\n4. Пакетна обробка потоку (Batching по 10 авто):")
     for batch_idx, batch in enumerate(islice(batched_cars(batch_pipeline, batch_size=10), 3), 1):
         prices_sum = sum(c.price for c in batch)
-        print(f"   Батч #{batch_idx}: {len(batch)} авто | Сума вартості: {prices_sum:.2f}$ | Моделі: {', '.join(c.model for c in batch[:3])}...")
+        print(
+            f"   Батч #{batch_idx}: {len(batch)} авто | Сума вартості: {prices_sum:.2f}$ | Моделі: {', '.join(c.model for c in batch[:3])}..."
+        )
 
     early_pipeline = build_streaming_pipeline(demo_path)
     target = find_first_car(early_pipeline, lambda c: c.price > 6000.0)
     print("\n5. Lazy Search із Early Termination (перший автомобіль з ціною > 6 000$):")
     if target:
         print(f"   Знайдено: {target.full_name} (ID: {target.id}, Рік: {target.year}, Ціна: {target.price:.2f}$)")
-
 
     infinite_stream = infinite_car_stream(start_id=1000)
     infinite_sample = list(islice(infinite_stream, 3))
@@ -274,7 +270,9 @@ def run_stream_demo(demo_path: Path | None = None) -> None:
     print("\n8. Аналіз дельти цін між сусідніми авто (itertools.pairwise):")
     for prev_c, curr_c, diff in pair_sample:
         sign = "+" if diff >= 0 else ""
-        print(f"   {prev_c.full_name} ({prev_c.price:.0f}$) -> {curr_c.full_name} ({curr_c.price:.0f}$) | Різниця: {sign}{diff:.2f}$")
+        print(
+            f"   {prev_c.full_name} ({prev_c.price:.0f}$) -> {curr_c.full_name} ({curr_c.price:.0f}$) | Різниця: {sign}{diff:.2f}$"
+        )
 
     acc_pipeline = build_streaming_pipeline(demo_path)
     cum_prices = list(islice(streaming_accumulate_prices(acc_pipeline), 4))
@@ -294,6 +292,7 @@ def run_stream_demo(demo_path: Path | None = None) -> None:
     flattened = list(recursive_flatten(nested_data))
     print(f"\n12. Рекурсивний генератор з yield from (flattening): розгорнуто {len(flattened)} об'єктів")
 
+
 def run_stream_benchmark_cli() -> None:
     print("\n" + "=" * 80)
     print("  ЕКСПЕРИМЕНТАЛЬНЕ ПОРІВНЯННЯ: Eager Evaluation проти Lazy Streaming Pipeline")
@@ -305,10 +304,14 @@ def run_stream_benchmark_cli() -> None:
 
     print("\nТаблиця 1: Порівняння тривалості обробки та пікового споживання пам'яті:")
     print("-" * 88)
-    print(f"{'К-сть рядків':>12} | {'Eager Час (с)':>14} | {'Lazy Час (с)':>13} | {'Eager RAM (KiB)':>16} | {'Lazy RAM (KiB)':>15} | {'Економія RAM':>14}")
+    print(
+        f"{'К-сть рядків':>12} | {'Eager Час (с)':>14} | {'Lazy Час (с)':>13} | {'Eager RAM (KiB)':>16} | {'Lazy RAM (KiB)':>15} | {'Економія RAM':>14}"
+    )
     print("-" * 88)
     for r in results:
-        print(f"{r['size']:12,d} | {r['eager_time']:14.4f} | {r['lazy_time']:13.4f} | {r['eager_peak_kib']:16.1f} | {r['lazy_peak_kib']:15.1f} | {r['memory_ratio']:13.1f}x")
+        print(
+            f"{r['size']:12,d} | {r['eager_time']:14.4f} | {r['lazy_time']:13.4f} | {r['eager_peak_kib']:16.1f} | {r['lazy_peak_kib']:15.1f} | {r['memory_ratio']:13.1f}x"
+        )
     print("-" * 88)
 
     print("\nТаблиця 2: Порівняння Time to First Result (TTFR):")
@@ -328,6 +331,7 @@ def run_stream_benchmark_cli() -> None:
     print(f"  Lazy час:  {early_res['lazy_time']:.6f} с | Пікова пам'ять: {early_res['lazy_peak_kib']:.1f} KiB")
     print(f"  Прискорення: {early_res['speedup']:.1f}x | Економія пам'яті: {early_res['memory_saving_ratio']:.1f}x")
     print("=" * 80)
+
 
 def run_oop_demo() -> None:
     print("\n" + "=" * 80)
@@ -464,6 +468,7 @@ def run_oop_demo() -> None:
     print(f"     - Composed Processor результат:    {comp_res[0].full_name}")
     print("     - Висновок: композиція усуває монолітність базового класу та ізолює відповідальності.")
 
+
 def run_reliable_demo() -> None:
     print("\n" + "=" * 70)
     print("ДЕМОНСТРАЦІЯ ЛАБОРАТОРНОЇ РОБОТИ №5: НАДІЙНИЙ ІМПОРТ/ЕКСПОРТ І СЕРІАЛІЗАЦІЯ")
@@ -504,10 +509,17 @@ def run_reliable_demo() -> None:
     print("\n5. Демонстрація експорту невалідних записів (Error CSV):")
     if config.processing.error_csv_path and config.processing.error_csv_path.exists():
         err_lines = config.processing.error_csv_path.read_text(encoding="utf-8").strip().splitlines()
-        print(f"   - Файл помилок {config.processing.error_csv_path} містить {len(err_lines)-1} відхилених записів.")
+        print(f"   - Файл помилок {config.processing.error_csv_path} містить {len(err_lines) - 1} відхилених записів.")
 
     print("\n6. Демонстрація Exception Chaining (ValueError -> RecordValidationError):")
-    invalid_sample = {"vehicle_id": "1", "brand": "Audi", "model": "A4", "year": "invalid_year", "price": "1000", "mileage": "5000"}
+    invalid_sample = {
+        "vehicle_id": "1",
+        "brand": "Audi",
+        "model": "A4",
+        "year": "invalid_year",
+        "price": "1000",
+        "mileage": "5000",
+    }
     try:
         parse_car_record(invalid_sample, line_number=42)
     except RecordValidationError as exc:
@@ -520,6 +532,7 @@ def run_reliable_demo() -> None:
         print("   - Тіло блоку with виконується під контролем context manager.")
 
     print("\nДемонстрацію Лабораторної роботи №5 успішно завершено.")
+
 
 def print_menu() -> None:
     print("\n--- Меню каталогу автомобілів (Лабораторні роботи №1 - №5) ---")
@@ -549,6 +562,7 @@ def print_menu() -> None:
     print("  [Лабораторна робота №9 - Паралельність, багатопроцесність та оптимізація]")
     print("  20. Демонстрація паралельності, багатопроцесності та оптимізації (Лаб 9)")
     print("  21. Вихід")
+
 
 def run_menu(cars: list[Car]) -> None:
     history: deque[str] = deque(maxlen=10)
@@ -630,7 +644,9 @@ def run_menu(cars: list[Car]) -> None:
             sample_car = create_car_record(
                 id=10, brand="Volvo", model="XC90", year=2021, price=48000.0, mileage=55000.0
             )
-            print(f"Створено через create_car_record(**kwargs): {sample_car.full_name}, кортеж: {sample_car.to_tuple()}")
+            print(
+                f"Створено через create_car_record(**kwargs): {sample_car.full_name}, кортеж: {sample_car.to_tuple()}"
+            )
         elif cmd == "11":
             print("\nІсторія останніх операцій (collections.deque):")
             for idx, op in enumerate(history, 1):
@@ -644,7 +660,11 @@ def run_menu(cars: list[Car]) -> None:
         elif cmd == "15":
             run_stream_benchmark_cli()
         elif cmd == "16":
-            batch_p = build_streaming_pipeline(Path("data/demo_stream_cars.csv") if Path("data/demo_stream_cars.csv").exists() else Path("data/cars_10000.csv"))
+            batch_p = build_streaming_pipeline(
+                Path("data/demo_stream_cars.csv")
+                if Path("data/demo_stream_cars.csv").exists()
+                else Path("data/cars_10000.csv")
+            )
             print("\nДемонстрація batching (порціями по 5):")
             for i, batch in enumerate(islice(batched_cars(batch_p, 5), 3), 1):
                 print(f"  Батч #{i}: {[c.full_name for c in batch]}")
@@ -670,8 +690,10 @@ def run_menu(cars: list[Car]) -> None:
         else:
             print("Невідома команда. Спробуйте ще раз.")
 
+
 def run_parallel_demo() -> None:
     from threading import Thread
+
     print("\n=== ДЕМОНСТРАЦІЯ ЛАБОРАТОРНОЇ РОБОТИ №9 (Паралельність, багатопроцесність та оптимізація) ===")
     cpu_count = get_system_cpu_count()
     print(f"Доступна кількість ядер процесора: {cpu_count}")
@@ -687,12 +709,16 @@ def run_parallel_demo() -> None:
     start = perf_counter()
     calculate_scores_threads(prices, workers=workers_to_use)
     t_th = perf_counter() - start
-    print(f"2. ThreadPoolExecutor ({workers_to_use} workers): {t_th:.4f} s (Speedup: {calculate_speedup(t_seq, t_th):.2f}x)")
+    print(
+        f"2. ThreadPoolExecutor ({workers_to_use} workers): {t_th:.4f} s (Speedup: {calculate_speedup(t_seq, t_th):.2f}x)"
+    )
 
     start = perf_counter()
     calculate_scores_processes(prices, workers=workers_to_use, chunksize=100)
     t_pr = perf_counter() - start
-    print(f"3. ProcessPoolExecutor ({workers_to_use} workers): {t_pr:.4f} s (Speedup: {calculate_speedup(t_seq, t_pr):.2f}x)")
+    print(
+        f"3. ProcessPoolExecutor ({workers_to_use} workers): {t_pr:.4f} s (Speedup: {calculate_speedup(t_seq, t_pr):.2f}x)"
+    )
 
     start = perf_counter()
     py_stats = statistics_python(prices)
@@ -701,7 +727,9 @@ def run_parallel_demo() -> None:
     start = perf_counter()
     np_stats = statistics_numpy(prices)
     t_npstat = perf_counter() - start
-    print(f"4. Числова статистика: Pure Python = {t_pystat:.6f} s, NumPy = {t_npstat:.6f} s (Speedup: {calculate_speedup(t_pystat, t_npstat):.2f}x)")
+    print(
+        f"4. Числова статистика: Pure Python = {t_pystat:.6f} s, NumPy = {t_npstat:.6f} s (Speedup: {calculate_speedup(t_pystat, t_npstat):.2f}x)"
+    )
     print(f"   Python: avg={py_stats['average']:.2f}, std={py_stats['std']:.2f}")
     print(f"   NumPy:  avg={np_stats['average']:.2f}, std={np_stats['std']:.2f}")
 
@@ -721,9 +749,11 @@ def run_parallel_demo() -> None:
 
     print("\n6. Демонстрація ThreadSafeCounter (синхронізація Lock):")
     counter = ThreadSafeCounter()
+
     def increment_task() -> None:
         for _ in range(1000):
             counter.increment()
+
     threads = [Thread(target=increment_task) for _ in range(10)]
     for t in threads:
         t.start()
@@ -731,8 +761,10 @@ def run_parallel_demo() -> None:
         t.join()
     print(f"   Фінальне значення лічильника (10 потоків x 1000 інкрементів): {counter.value} (очікувано 10000)")
 
+
 def run_parallel_benchmark_cli() -> None:
     from car_catalog.profiling import benchmark_repeated
+
     print("\n=== ЕКСПЕРИМЕНТАЛЬНИЙ БЕНЧМАРК ОПТИМІЗАЦІЙ ЛАБОРАТОРНОЇ №9 ===")
     cpu_count = get_system_cpu_count()
     print(f"CPU cores: {cpu_count}")
@@ -748,7 +780,10 @@ def run_parallel_benchmark_cli() -> None:
         print(f"CPU-bound Sequential: {t_seq:.4f} s (1.00x)")
         print(f"CPU-bound ThreadPool (4w): {t_th:.4f} s ({calculate_speedup(t_seq, t_th):.2f}x)")
         print(f"CPU-bound ProcessPool (4w): {t_pr:.4f} s ({calculate_speedup(t_seq, t_pr):.2f}x)")
-        print(f"Vectorization NumPy stats: {t_np:.6f} s vs Python stats {t_py:.6f} s ({calculate_speedup(t_py, t_np):.2f}x)")
+        print(
+            f"Vectorization NumPy stats: {t_np:.6f} s vs Python stats {t_py:.6f} s ({calculate_speedup(t_py, t_np):.2f}x)"
+        )
+
 
 def main() -> None:
     cars = list(DEMO_CARS)
@@ -756,7 +791,11 @@ def main() -> None:
         run_reliable_demo()
     elif "--reliable-pipeline" in sys.argv:
         idx = sys.argv.index("--reliable-pipeline")
-        cfg_file = Path(sys.argv[idx + 1]) if len(sys.argv) > idx + 1 and not sys.argv[idx + 1].startswith("--") else Path("config.yaml")
+        cfg_file = (
+            Path(sys.argv[idx + 1])
+            if len(sys.argv) > idx + 1 and not sys.argv[idx + 1].startswith("--")
+            else Path("config.yaml")
+        )
         try:
             cfg = load_config(cfg_file)
             configure_logging(cfg.logging.level, cfg.logging.path, console=cfg.logging.console)
@@ -766,6 +805,7 @@ def main() -> None:
             sys.exit(1)
     elif "--run-api" in sys.argv:
         import uvicorn
+
         port = 8000
         if "--port" in sys.argv:
             p_idx = sys.argv.index("--port")
@@ -804,6 +844,6 @@ def main() -> None:
     else:
         run_menu(cars)
 
+
 if __name__ == "__main__":
     main()
-

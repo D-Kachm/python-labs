@@ -3,6 +3,7 @@ from typing import TypeVar
 
 Number = TypeVar("Number", int, float)
 
+
 @dataclass(frozen=True, slots=True)
 class Money:
     amount: float
@@ -46,6 +47,7 @@ class Money:
     def __repr__(self) -> str:
         return f"Money(amount={self.amount!r}, currency={self.currency!r})"
 
+
 @dataclass(frozen=True, slots=True)
 class Mileage:
     value: float
@@ -74,6 +76,7 @@ class Mileage:
 
     def __repr__(self) -> str:
         return f"Mileage(value={self.value!r}, unit={self.unit!r})"
+
 
 @dataclass(frozen=True, slots=True)
 class VIN:

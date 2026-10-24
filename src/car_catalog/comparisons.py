@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from car_catalog.abstractions import DiscountPolicy, NoDiscount, PercentageDiscount, Repository
+from car_catalog.abstractions import DiscountPolicy, PercentageDiscount, Repository
 from car_catalog.models import Car, Vehicle
 from car_catalog.notifiers import ConsoleNotifier
 from car_catalog.protocols import VehicleNotifier
 from car_catalog.repositories import InMemoryRepository
-from car_catalog.value_objects import Money
+
 
 class TightlyCoupledService:
     def __init__(self) -> None:
@@ -16,6 +16,7 @@ class TightlyCoupledService:
     def register_car(self, car: Vehicle) -> None:
         self.repository.add(car)
         self.notifier.send("admin@company.com", f"Car added: {car.full_name}")
+
 
 class DecoupledService:
     def __init__(
@@ -32,6 +33,7 @@ class DecoupledService:
         self.repository.add(car)
         self.notifier.send("admin@company.com", f"Car added: {car.full_name}")
 
+
 class BaseVehicleProcessor(ABC):
     @abstractmethod
     def read_source(self, raw_input: str) -> list[str]:
@@ -44,6 +46,7 @@ class BaseVehicleProcessor(ABC):
     def process(self, raw_input: str) -> list[Vehicle]:
         lines = self.read_source(raw_input)
         return [self.parse_item(line) for line in lines if line.strip()]
+
 
 class CsvVehicleProcessor(BaseVehicleProcessor):
     def read_source(self, raw_input: str) -> list[str]:
@@ -60,6 +63,7 @@ class CsvVehicleProcessor(BaseVehicleProcessor):
             mileage=float(parts[5]),
         )
 
+
 class VehicleParser:
     def parse(self, line: str) -> dict[str, Any]:
         parts = [p.strip() for p in line.split(",")]
@@ -72,6 +76,7 @@ class VehicleParser:
             "mileage": float(parts[5]),
         }
 
+
 class VehicleValidator:
     def validate(self, data: dict[str, Any]) -> bool:
         return (
@@ -83,9 +88,11 @@ class VehicleValidator:
             and data.get("mileage", 0.0) >= 0.0
         )
 
+
 class VehicleFormatter:
     def format(self, vehicle: Vehicle) -> str:
         return f"{vehicle.full_name} ({vehicle.year}) - {vehicle.price:.2f}$"
+
 
 class ComposedVehicleProcessor:
     def __init__(

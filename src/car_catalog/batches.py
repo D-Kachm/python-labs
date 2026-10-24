@@ -1,9 +1,10 @@
 from collections.abc import Iterable, Iterator
 from itertools import islice
-from typing import Any, TypeVar
+from typing import TypeVar
 from car_catalog.models import Car
 
 T = TypeVar("T")
+
 
 def batched_cars(cars: Iterable[Car], batch_size: int) -> Iterator[list[Car]]:
     if batch_size <= 0:
@@ -14,6 +15,7 @@ def batched_cars(cars: Iterable[Car], batch_size: int) -> Iterator[list[Car]]:
         if not batch:
             break
         yield batch
+
 
 def dynamic_batched(iterable: Iterable[T], batch_size: int) -> Iterator[list[T]]:
     if batch_size <= 0:

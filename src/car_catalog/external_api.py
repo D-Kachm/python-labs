@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 import httpx
 
+
 async def fetch_single_resource_with_retry(
     client: httpx.AsyncClient,
     url: str,
@@ -24,6 +25,7 @@ async def fetch_single_resource_with_retry(
                     return None
                 await asyncio.sleep(backoff_seconds * attempt)
         return None
+
 
 async def fetch_resources_concurrently(
     urls: list[str],

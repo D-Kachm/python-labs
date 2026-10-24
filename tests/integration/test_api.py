@@ -8,12 +8,22 @@ from car_catalog.external_api import (
     fetch_single_resource_with_retry,
 )
 
+
 def test_api_root(api_client: TestClient) -> None:
     response = api_client.get("/")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == "0.8.0"
+    assert payload["version"] == "1.0.0"
     assert "message" in payload
+
+
+def test_health(api_client: TestClient) -> None:
+    response = api_client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["environment"] in {"development", "production", "test", "staging"}
+
 
 def test_get_cars_all(api_client: TestClient) -> None:
     response = api_client.get("/cars")
@@ -22,12 +32,14 @@ def test_get_cars_all(api_client: TestClient) -> None:
     assert len(cars) >= 4
     assert cars[0]["model"] in {"Camry", "Corolla", "M3", "Model 3"}
 
+
 def test_get_cars_filter_by_manufacturer(api_client: TestClient) -> None:
     response = api_client.get("/cars", params={"manufacturer": "Toyota"})
     assert response.status_code == 200
     cars = response.json()
     assert len(cars) == 2
     assert all(c["manufacturer"]["name"] == "Toyota" for c in cars)
+
 
 def test_get_cars_filter_by_year_and_price(api_client: TestClient) -> None:
     response = api_client.get(
@@ -41,6 +53,7 @@ def test_get_cars_filter_by_year_and_price(api_client: TestClient) -> None:
         assert 2021 <= car["year"] <= 2023
         assert 25000.0 <= car["price"] <= 50000.0
 
+
 def test_get_car_by_id_success(api_client: TestClient) -> None:
     response = api_client.get("/cars/1")
     assert response.status_code == 200
@@ -49,10 +62,12 @@ def test_get_car_by_id_success(api_client: TestClient) -> None:
     assert car["model"] == "Camry"
     assert car["manufacturer"]["name"] == "Toyota"
 
+
 def test_get_car_by_id_not_found(api_client: TestClient) -> None:
     response = api_client.get("/cars/99999")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
+
 
 def test_create_car_success(api_client: TestClient) -> None:
     payload = {
@@ -70,6 +85,7 @@ def test_create_car_success(api_client: TestClient) -> None:
     assert created["model"] == "RAV4"
     assert created["vin"] == "2T3F1REV8MW000099"
 
+
 def test_create_car_validation_error(api_client: TestClient) -> None:
     payload = {
         "manufacturer_id": 1,
@@ -81,6 +97,7 @@ def test_create_car_validation_error(api_client: TestClient) -> None:
     }
     response = api_client.post("/cars", json=payload)
     assert response.status_code == 422
+
 
 def test_create_car_invalid_manufacturer(api_client: TestClient) -> None:
     payload = {
@@ -94,6 +111,7 @@ def test_create_car_invalid_manufacturer(api_client: TestClient) -> None:
     response = api_client.post("/cars", json=payload)
     assert response.status_code == 404
 
+
 def test_create_car_duplicate_vin(api_client: TestClient) -> None:
     payload = {
         "manufacturer_id": 1,
@@ -106,6 +124,7 @@ def test_create_car_duplicate_vin(api_client: TestClient) -> None:
     response = api_client.post("/cars", json=payload)
     assert response.status_code == 409
 
+
 def test_patch_car_success(api_client: TestClient) -> None:
     update_data = {"price": 24000.0, "mileage": 49000.0}
     response = api_client.patch("/cars/1", json=update_data)
@@ -114,9 +133,11 @@ def test_patch_car_success(api_client: TestClient) -> None:
     assert updated["price"] == 24000.0
     assert updated["mileage"] == 49000.0
 
+
 def test_patch_car_not_found(api_client: TestClient) -> None:
     response = api_client.patch("/cars/99999", json={"price": 30000.0})
     assert response.status_code == 404
+
 
 def test_delete_car_success(api_client: TestClient) -> None:
     response = api_client.delete("/cars/1")
@@ -124,9 +145,11 @@ def test_delete_car_success(api_client: TestClient) -> None:
     check = api_client.get("/cars/1")
     assert check.status_code == 404
 
+
 def test_delete_car_not_found(api_client: TestClient) -> None:
     response = api_client.delete("/cars/99999")
     assert response.status_code == 404
+
 
 def test_get_manufacturers_and_create(api_client: TestClient) -> None:
     response = api_client.get("/manufacturers")
@@ -151,6 +174,7 @@ def test_get_manufacturers_and_create(api_client: TestClient) -> None:
     assert get_one.status_code == 200
     assert get_one.json()["name"] == "Porsche"
 
+
 def test_get_cars_by_manufacturer_id(api_client: TestClient) -> None:
     response = api_client.get("/manufacturers/2/cars")
     assert response.status_code == 200
@@ -158,11 +182,13 @@ def test_get_cars_by_manufacturer_id(api_client: TestClient) -> None:
     assert len(cars) == 1
     assert cars[0]["model"] == "M3"
 
+
 def test_delete_manufacturer_cascade(api_client: TestClient) -> None:
     response = api_client.delete("/manufacturers/3")
     assert response.status_code == 204
     car_check = api_client.get("/cars/3")
     assert car_check.status_code == 404
+
 
 def test_analytics_endpoints(api_client: TestClient) -> None:
     summary_resp = api_client.get("/cars/analytics/summary")
@@ -178,6 +204,7 @@ def test_analytics_endpoints(api_client: TestClient) -> None:
     assert len(stats) >= 1
     assert "average_price" in stats[0]
 
+
 def test_batch_fetch_cars_endpoint(api_client: TestClient) -> None:
     response = api_client.post("/cars/batch", json={"car_ids": [2, 4, 99999]})
     assert response.status_code == 200
@@ -186,11 +213,13 @@ def test_batch_fetch_cars_endpoint(api_client: TestClient) -> None:
     assert 99999 in data["missing_ids"]
     assert len(data["items"]) == 2
 
+
 @pytest.mark.asyncio
 async def test_async_api_client_root(async_api_client: Any) -> None:
     response = await async_api_client.get("/")
     assert response.status_code == 200
     assert response.json()["message"] == "Car Catalog REST API is running"
+
 
 @pytest.mark.asyncio
 async def test_external_api_retry_and_semaphore() -> None:

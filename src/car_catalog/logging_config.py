@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+
 def configure_logging(
     level: str,
     path: Path,

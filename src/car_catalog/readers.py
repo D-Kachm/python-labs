@@ -8,13 +8,16 @@ import yaml
 from car_catalog.exceptions import DataImportError
 from car_catalog.models import Car
 
+
 def read_lines(path: Path) -> Iterator[str]:
     with path.open("r", encoding="utf-8") as file:
         yield from file
 
+
 def read_multiple_files(*paths: Path) -> Iterator[str]:
     file_streams = (read_lines(p) for p in paths)
     yield from chain.from_iterable(file_streams)
+
 
 def infinite_car_stream(start_id: int = 1) -> Iterator[Car]:
     brands_models = [
@@ -42,6 +45,7 @@ def infinite_car_stream(start_id: int = 1) -> Iterator[Car]:
             mileage=mileage,
         )
 
+
 def read_csv_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     try:
         with path.open("r", encoding="utf-8", newline="") as file:
@@ -50,6 +54,7 @@ def read_csv_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
                 yield line_number, dict(row)
     except OSError as error:
         raise DataImportError(f"Cannot read input file: {path}") from error
+
 
 def read_json_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     try:
@@ -68,6 +73,7 @@ def read_json_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
             raise DataImportError(f"JSON record at index {idx} is not an object")
         yield idx, item
 
+
 def read_jsonl_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     try:
         with path.open("r", encoding="utf-8") as file:
@@ -85,6 +91,7 @@ def read_jsonl_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     except OSError as error:
         raise DataImportError(f"Cannot read input file: {path}") from error
 
+
 def read_yaml_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     try:
         with path.open("r", encoding="utf-8") as file:
@@ -101,6 +108,7 @@ def read_yaml_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
         if not isinstance(item, dict):
             raise DataImportError(f"YAML record at index {idx} is not an object")
         yield idx, item
+
 
 def read_file_rows(path: Path, file_format: str | None = None) -> Iterator[tuple[int, dict[str, Any]]]:
     fmt = (file_format or path.suffix.lstrip(".").lower()).lower()

@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from typing import Any
 from unittest.mock import AsyncMock, Mock, create_autospec
 import pytest
 from car_catalog.abstractions import NoDiscount, PercentageDiscount, Repository
@@ -15,12 +14,10 @@ from car_catalog.analytics import (
     get_price_range,
     sort_by_price,
 )
-from car_catalog.criteria import BrandCriteria
 from car_catalog.models import Car, Vehicle
 from car_catalog.processors import (
     count_by_brand,
     create_car_index,
-    filter_by_brand,
     find_car_by_id,
     find_car_linear,
     get_unique_brands,
@@ -38,6 +35,7 @@ from car_catalog.services import (
     CatalogService,
     VehicleEnrichmentService,
 )
+
 
 class FakeVehicleRepository(Repository[Vehicle]):
     def __init__(self) -> None:
@@ -64,6 +62,7 @@ class FakeVehicleRepository(Repository[Vehicle]):
     def count(self) -> int:
         return len(self._items)
 
+
 @pytest.mark.unit
 def test_catalog_service_search_by_brand(sample_cars_list: list[Vehicle]) -> None:
     repo = VehicleRepository()
@@ -75,6 +74,7 @@ def test_catalog_service_search_by_brand(sample_cars_list: list[Vehicle]) -> Non
     results = service.search_by_brand("Toyota")
     assert len(results) == 1
     assert results[0].brand == "Toyota"
+
 
 @pytest.mark.unit
 def test_catalog_service_search_by_model(sample_cars_list: list[Vehicle]) -> None:
@@ -88,6 +88,7 @@ def test_catalog_service_search_by_model(sample_cars_list: list[Vehicle]) -> Non
     assert len(results) == 1
     assert results[0].model == "M3"
 
+
 @pytest.mark.unit
 def test_catalog_service_filter_by_year(sample_cars_list: list[Vehicle]) -> None:
     repo = VehicleRepository()
@@ -99,6 +100,7 @@ def test_catalog_service_filter_by_year(sample_cars_list: list[Vehicle]) -> None
     results = service.filter_by_year(2021)
     assert len(results) == 1
     assert results[0].year == 2021
+
 
 @pytest.mark.unit
 def test_catalog_service_analytics_calculations(sample_cars_list: list[Vehicle]) -> None:
@@ -122,6 +124,7 @@ def test_catalog_service_analytics_calculations(sample_cars_list: list[Vehicle])
     assert lowest_mileage.brand == "BMW"
     assert lowest_mileage.mileage == pytest.approx(12000.0)
 
+
 @pytest.mark.unit
 def test_catalog_service_empty_analytics() -> None:
     repo = VehicleRepository()
@@ -131,6 +134,7 @@ def test_catalog_service_empty_analytics() -> None:
     assert service.find_most_expensive() is None
     assert service.find_lowest_mileage() is None
     assert service.calculate_average_price() == pytest.approx(0.0)
+
 
 @pytest.mark.unit
 def test_fake_repository_crud(sample_car: Car) -> None:
@@ -145,6 +149,7 @@ def test_fake_repository_crud(sample_car: Car) -> None:
     assert fake_repo.get(sample_car.id) is None
     assert fake_repo.remove(999) is False
 
+
 @pytest.mark.unit
 def test_catalog_service_with_notifier_mock(sample_car: Car) -> None:
     repo = VehicleRepository()
@@ -158,6 +163,7 @@ def test_catalog_service_with_notifier_mock(sample_car: Car) -> None:
         f"New vehicle registered: {sample_car.full_name} (ID: {sample_car.id})",
     )
 
+
 @pytest.mark.unit
 def test_catalog_service_duplicate_add_fails(sample_car: Car) -> None:
     repo = VehicleRepository()
@@ -169,6 +175,7 @@ def test_catalog_service_duplicate_add_fails(sample_car: Car) -> None:
     assert duplicate_result.success is False
     assert "already exists" in str(duplicate_result.error)
     notifier_mock.send.assert_called_once()
+
 
 @pytest.mark.unit
 def test_catalog_service_checkout(sample_car: Car) -> None:
@@ -187,6 +194,7 @@ def test_catalog_service_checkout(sample_car: Car) -> None:
     assert missing_res.success is False
     assert "not found" in str(missing_res.error)
 
+
 @pytest.mark.unit
 def test_vehicle_repository_dunders(sample_car: Car) -> None:
     repo = VehicleRepository()
@@ -196,6 +204,7 @@ def test_vehicle_repository_dunders(sample_car: Car) -> None:
     assert repo[sample_car.id] == sample_car
     assert list(iter(repo)) == [sample_car]
     assert repo.get(sample_car.id) == sample_car
+
 
 @pytest.mark.unit
 def test_vehicle_enrichment_service_mock_success() -> None:
@@ -213,6 +222,7 @@ def test_vehicle_enrichment_service_mock_success() -> None:
     assert specs["engine"] == "2.5L 4-Cylinder"
     external_mock.fetch_vehicle_specs.assert_called_once_with(vin)
 
+
 @pytest.mark.unit
 def test_vehicle_enrichment_service_mock_side_effect_failure() -> None:
     external_mock = Mock(spec=ExternalVehicleInfoService)
@@ -225,6 +235,7 @@ def test_vehicle_enrichment_service_mock_side_effect_failure() -> None:
 
     external_mock.fetch_vehicle_specs.assert_called_once_with(vin)
 
+
 @pytest.mark.unit
 def test_vehicle_enrichment_service_invalid_vin() -> None:
     external_mock = Mock(spec=ExternalVehicleInfoService)
@@ -235,6 +246,7 @@ def test_vehicle_enrichment_service_invalid_vin() -> None:
 
     external_mock.fetch_vehicle_specs.assert_not_called()
 
+
 @pytest.mark.unit
 def test_create_autospec_verification() -> None:
     autospec_service = create_autospec(ExternalVehicleInfoService, instance=True)
@@ -244,6 +256,7 @@ def test_create_autospec_verification() -> None:
     result = enrichment.enrich_specs("12345678901234567")
     assert result == {"status": "ok"}
     autospec_service.fetch_vehicle_specs.assert_called_once_with("12345678901234567")
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -261,6 +274,7 @@ async def test_async_vehicle_market_service_success() -> None:
     assert price == pytest.approx(25500.0)
     client_mock.fetch_market_evaluation.assert_awaited_once_with("Toyota", "Camry", 2021)
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_async_vehicle_market_service_failure() -> None:
@@ -272,6 +286,7 @@ async def test_async_vehicle_market_service_failure() -> None:
         await service.get_market_price("BMW", "M3", 2022)
 
     client_mock.fetch_market_evaluation.assert_awaited_once_with("BMW", "M3", 2022)
+
 
 @pytest.mark.unit
 def test_legacy_analytics_and_processors_functions(sample_cars_list: list[Vehicle]) -> None:

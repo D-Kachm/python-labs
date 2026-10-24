@@ -11,6 +11,7 @@ DEMO_CARS: list[Car] = [
     Car(id=8, brand="Mercedes-Benz", model="E-Class", year=2017, price=29000.0, mileage=135000.0),
 ]
 
+
 def generate_cars(count: int) -> list[Car]:
     brands_models = [
         ("Audi", "A6"),

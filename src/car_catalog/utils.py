@@ -8,6 +8,7 @@ from car_catalog.exceptions import DataExportError
 
 logger = logging.getLogger(__name__)
 
+
 @contextmanager
 def logged_operation(operation: str) -> Iterator[None]:
     logger.info("%s started", operation)
@@ -21,6 +22,7 @@ def logged_operation(operation: str) -> Iterator[None]:
         elapsed = perf_counter() - start
         logger.info("%s finished in %.6f s", operation, elapsed)
 
+
 @contextmanager
 def timer(name: str) -> Iterator[dict[str, float]]:
     stats = {"elapsed": 0.0}
@@ -29,6 +31,7 @@ def timer(name: str) -> Iterator[dict[str, float]]:
         yield stats
     finally:
         stats["elapsed"] = perf_counter() - start
+
 
 @contextmanager
 def atomic_file_writer(

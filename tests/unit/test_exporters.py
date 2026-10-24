@@ -13,6 +13,7 @@ from car_catalog.exporters import (
 from car_catalog.models import Car, Vehicle
 from car_catalog.utils import atomic_file_writer
 
+
 @pytest.mark.unit
 def test_get_exporter_factory() -> None:
     assert isinstance(get_exporter("json"), JsonExporter)
@@ -23,6 +24,7 @@ def test_get_exporter_factory() -> None:
     with pytest.raises(DataExportError, match="Unsupported exporter format"):
         get_exporter("unsupported_format")
 
+
 @pytest.mark.unit
 def test_atomic_file_writer_success(tmp_path: Path) -> None:
     target_file = tmp_path / "atomic_success.txt"
@@ -31,6 +33,7 @@ def test_atomic_file_writer_success(tmp_path: Path) -> None:
 
     assert target_file.exists()
     assert target_file.read_text(encoding="utf-8") == "Atomic content payload"
+
 
 @pytest.mark.unit
 def test_atomic_file_writer_preserves_original_on_failure(tmp_path: Path) -> None:
@@ -45,6 +48,7 @@ def test_atomic_file_writer_preserves_original_on_failure(tmp_path: Path) -> Non
     assert target_file.read_text(encoding="utf-8") == "Initial original data"
     temp_candidates = list(tmp_path.glob("*.tmp"))
     assert len(temp_candidates) == 0
+
 
 @pytest.mark.unit
 def test_json_exporter_output(tmp_path: Path, sample_cars_list: list[Vehicle]) -> None:
@@ -61,6 +65,7 @@ def test_json_exporter_output(tmp_path: Path, sample_cars_list: list[Vehicle]) -
     assert data[0]["brand"] == "Toyota"
     assert data[0]["price"] == pytest.approx(26000.0)
 
+
 @pytest.mark.unit
 def test_jsonl_exporter_output(tmp_path: Path, sample_cars_list: list[Vehicle]) -> None:
     out_file = tmp_path / "exported_cars.jsonl"
@@ -76,6 +81,7 @@ def test_jsonl_exporter_output(tmp_path: Path, sample_cars_list: list[Vehicle]) 
     record = json.loads(lines[0])
     assert record["brand"] == "Toyota"
 
+
 @pytest.mark.unit
 def test_csv_exporter_output(tmp_path: Path, sample_cars_list: list[Vehicle]) -> None:
     out_file = tmp_path / "exported_cars.csv"
@@ -88,6 +94,7 @@ def test_csv_exporter_output(tmp_path: Path, sample_cars_list: list[Vehicle]) ->
     content = out_file.read_text(encoding="utf-8")
     assert "vehicle_id,brand,model,year,price,mileage" in content
     assert "Toyota,Camry" in content
+
 
 @pytest.mark.unit
 def test_export_invalid_records_csv(tmp_path: Path) -> None:

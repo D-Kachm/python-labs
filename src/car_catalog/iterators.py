@@ -2,6 +2,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from typing import Any
 from car_catalog.models import Car
 
+
 class CarCatalogIterator:
     def __init__(self, cars: Sequence[Car]) -> None:
         self._cars = cars
@@ -18,6 +19,7 @@ class CarCatalogIterator:
         self._index += 1
         return car
 
+
 class CarCatalogIterable:
     def __init__(self, cars: Sequence[Car]) -> None:
         self._cars = tuple(cars)
@@ -27,6 +29,7 @@ class CarCatalogIterable:
 
     def __len__(self) -> int:
         return len(self._cars)
+
 
 def recursive_flatten(nested: Iterable[Any]) -> Iterator[Any]:
     for item in nested:

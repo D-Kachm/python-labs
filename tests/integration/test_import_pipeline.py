@@ -4,6 +4,7 @@ import pytest
 from car_catalog.exceptions import RecordValidationError
 from car_catalog.services import ImportStatistics, import_cars
 
+
 @pytest.mark.integration
 def test_streaming_import_tolerant_mode(sample_csv_with_errors: Path) -> None:
     stats = ImportStatistics()
@@ -26,6 +27,7 @@ def test_streaming_import_tolerant_mode(sample_csv_with_errors: Path) -> None:
 
     brands = [car.brand for car in cars]
     assert brands == ["Ford", "Volvo"]
+
 
 @pytest.mark.integration
 def test_streaming_import_strict_mode_aborts(sample_csv_with_errors: Path) -> None:

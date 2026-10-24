@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from car_catalog.config import get_settings
 from car_catalog.database import create_database_engine, create_session_factory
 from car_catalog.db_models import CarEntity, Manufacturer
 from car_catalog.external_api import fetch_resources_concurrently
@@ -22,8 +23,10 @@ from car_catalog.schemas import (
     RemoteBatchResponse,
 )
 
+
 def get_session() -> Generator[Session, None, None]:
-    engine = create_database_engine()
+    settings = get_settings()
+    engine = create_database_engine(settings.database_url)
     session_factory = create_session_factory(engine)
     session = session_factory()
     try:
@@ -31,19 +34,33 @@ def get_session() -> Generator[Session, None, None]:
     finally:
         session.close()
 
+
+settings = get_settings()
+
 app = FastAPI(
-    title="Car Catalog REST API",
-    description="High-performance asynchronous REST API for Car Catalog management",
-    version="0.8.0",
+    title=settings.app_name,
+    description="Production-ready high-performance asynchronous REST API for Car Catalog management",
+    version="1.0.0",
 )
+
 
 @app.get("/", tags=["Root"])
 async def root() -> dict[str, str]:
     return {
         "message": "Car Catalog REST API is running",
-        "version": "0.8.0",
+        "version": "1.0.0",
         "docs_url": "/docs",
     }
+
+
+@app.get("/health", tags=["Health"])
+async def health() -> dict[str, str]:
+    current_settings = get_settings()
+    return {
+        "status": "ok",
+        "environment": current_settings.environment,
+    }
+
 
 @app.get("/cars", response_model=list[CarResponse], tags=["Cars"])
 async def get_cars(
@@ -75,6 +92,7 @@ async def get_cars(
 
     return cars[skip : skip + limit]
 
+
 @app.get("/cars/analytics/summary", response_model=AnalyticsSummaryResponse, tags=["Analytics"])
 async def get_cars_analytics(session: Session = Depends(get_session)) -> AnalyticsSummaryResponse:
     car_repo = CarRepository(session)
@@ -91,6 +109,7 @@ async def get_cars_analytics(session: Session = Depends(get_session)) -> Analyti
         lowest_mileage_car=CarResponse.model_validate(lowest_mileage) if lowest_mileage else None,
     )
 
+
 @app.get("/cars/{car_id}", response_model=CarResponse, tags=["Cars"])
 async def get_car(car_id: int, session: Session = Depends(get_session)) -> CarEntity:
     car_repo = CarRepository(session)
@@ -98,6 +117,7 @@ async def get_car(car_id: int, session: Session = Depends(get_session)) -> CarEn
     if car is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Car with ID {car_id} not found")
     return car
+
 
 @app.post("/cars", response_model=CarResponse, status_code=status.HTTP_201_CREATED, tags=["Cars"])
 async def create_car(data: CarCreate, session: Session = Depends(get_session)) -> CarEntity:
@@ -126,6 +146,7 @@ async def create_car(data: CarCreate, session: Session = Depends(get_session)) -
             detail=f"Car with VIN '{data.vin}' already exists",
         ) from err
 
+
 @app.patch("/cars/{car_id}", response_model=CarResponse, tags=["Cars"])
 async def update_car(car_id: int, data: CarUpdate, session: Session = Depends(get_session)) -> CarEntity:
     car_repo = CarRepository(session)
@@ -151,12 +172,14 @@ async def update_car(car_id: int, data: CarUpdate, session: Session = Depends(ge
             detail="Conflict updating car fields: duplicate unique key constraint",
         ) from err
 
+
 @app.delete("/cars/{car_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Cars"])
 async def delete_car(car_id: int, session: Session = Depends(get_session)) -> None:
     car_repo = CarRepository(session)
     deleted = car_repo.delete(car_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Car with ID {car_id} not found")
+
 
 @app.post("/cars/batch", response_model=BatchFetchResponse, tags=["Cars"])
 async def batch_fetch_cars(request: BatchFetchRequest, session: Session = Depends(get_session)) -> BatchFetchResponse:
@@ -180,10 +203,12 @@ async def batch_fetch_cars(request: BatchFetchRequest, session: Session = Depend
 
     return BatchFetchResponse(items=found_cars, total=len(found_cars), missing_ids=missing_ids)
 
+
 @app.get("/manufacturers", response_model=list[ManufacturerResponse], tags=["Manufacturers"])
 async def get_manufacturers(session: Session = Depends(get_session)) -> list[Manufacturer]:
     manufacturer_repo = ManufacturerRepository(session)
     return manufacturer_repo.get_all()
+
 
 @app.post(
     "/manufacturers",
@@ -209,6 +234,7 @@ async def create_manufacturer(data: ManufacturerCreate, session: Session = Depen
             detail=f"Manufacturer '{data.name}' already exists",
         ) from err
 
+
 @app.get("/manufacturers/{manufacturer_id}", response_model=ManufacturerResponse, tags=["Manufacturers"])
 async def get_manufacturer(manufacturer_id: int, session: Session = Depends(get_session)) -> Manufacturer:
     manufacturer_repo = ManufacturerRepository(session)
@@ -219,6 +245,7 @@ async def get_manufacturer(manufacturer_id: int, session: Session = Depends(get_
             detail=f"Manufacturer with ID {manufacturer_id} not found",
         )
     return manufacturer
+
 
 @app.get("/manufacturers/{manufacturer_id}/cars", response_model=list[CarResponse], tags=["Manufacturers"])
 async def get_cars_by_manufacturer(
@@ -235,6 +262,7 @@ async def get_cars_by_manufacturer(
         )
     return car_repo.find_by_manufacturer_name(manufacturer.name)
 
+
 @app.delete("/manufacturers/{manufacturer_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Manufacturers"])
 async def delete_manufacturer(manufacturer_id: int, session: Session = Depends(get_session)) -> None:
     manufacturer_repo = ManufacturerRepository(session)
@@ -244,6 +272,7 @@ async def delete_manufacturer(manufacturer_id: int, session: Session = Depends(g
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Manufacturer with ID {manufacturer_id} not found",
         )
+
 
 @app.get(
     "/manufacturers/analytics/statistics",
@@ -255,6 +284,7 @@ async def get_manufacturers_statistics(
 ) -> list[dict[str, Any]]:
     car_repo = CarRepository(session)
     return car_repo.get_manufacturer_statistics()
+
 
 @app.post("/external/batch-fetch", response_model=RemoteBatchResponse, tags=["Async HTTPX"])
 async def external_batch_fetch(request: RemoteBatchRequest) -> RemoteBatchResponse:

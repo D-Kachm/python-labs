@@ -10,6 +10,7 @@ from car_catalog.services import (
     run_import_export_pipeline,
 )
 
+
 @pytest.mark.integration
 def test_full_application_pipeline_execution(tmp_path: Path, sample_csv_with_errors: Path) -> None:
     output_file = tmp_path / "final_output.json"
@@ -54,6 +55,7 @@ processing:
     assert output_file.exists()
     exported_data = json.loads(output_file.read_text(encoding="utf-8"))
     assert len(exported_data) == 2
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio

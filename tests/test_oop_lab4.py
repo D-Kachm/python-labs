@@ -1,6 +1,6 @@
 import unittest
 from dataclasses import FrozenInstanceError
-from car_catalog.abstractions import NoDiscount, PercentageDiscount, ThresholdDiscount
+from car_catalog.abstractions import NoDiscount, PercentageDiscount
 from car_catalog.comparisons import (
     ComposedVehicleProcessor,
     CsvVehicleProcessor,
@@ -22,20 +22,18 @@ from car_catalog.criteria import (
     YearRangeCriteria,
 )
 from car_catalog.dto import (
-    ElectricVehiclePayload,
-    Result,
     VehiclePayload,
-    electric_vehicle_from_payload,
     vehicle_from_payload,
     vehicle_to_payload,
 )
 from car_catalog.models import Car, ElectricCar, Vehicle, VehicleCatalog
-from car_catalog.notifiers import ConsoleNotifier, RecordingNotifier
-from car_catalog.protocols import HasId, Priceable, SearchCriteria, VehicleNotifier
+from car_catalog.notifiers import RecordingNotifier
+from car_catalog.protocols import SearchCriteria
 from car_catalog.repositories import InMemoryRepository, VehicleRepository
 from car_catalog.services import CatalogService
 from car_catalog.specifications import VehicleSpecification
 from car_catalog.value_objects import Mileage, Money, VIN
+
 
 class TestValueObjects(unittest.TestCase):
     def test_money_valid_operations(self) -> None:
@@ -75,6 +73,7 @@ class TestValueObjects(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             VIN("12")
+
 
 class TestDomainEntitiesAndInheritance(unittest.TestCase):
     def setUp(self) -> None:
@@ -138,6 +137,7 @@ class TestDomainEntitiesAndInheritance(unittest.TestCase):
         self.assertEqual(updated_ev.range_km, 520.0)
         self.assertEqual(updated_ev.battery_capacity, 75.0)
 
+
 class TestVehicleCatalogCollection(unittest.TestCase):
     def setUp(self) -> None:
         self.c1 = Car(1, "Toyota", "Corolla", 2018, 15000.0, 80000.0)
@@ -164,6 +164,7 @@ class TestVehicleCatalogCollection(unittest.TestCase):
         self.assertEqual(self.catalog.average_price(), round((15000 + 20000 + 50000) / 3, 2))
         self.assertEqual(self.catalog.most_expensive(), self.ev)
         self.assertEqual(self.catalog.lowest_mileage(), self.ev)
+
 
 class TestSearchCriteriaStrategy(unittest.TestCase):
     def setUp(self) -> None:
@@ -196,6 +197,7 @@ class TestSearchCriteriaStrategy(unittest.TestCase):
     def test_runtime_checkable_protocol(self) -> None:
         crit = BrandCriteria("BMW")
         self.assertIsInstance(crit, SearchCriteria)
+
 
 class TestGenericRepositoryAndDI(unittest.TestCase):
     def test_repository_operations(self) -> None:
@@ -239,6 +241,7 @@ class TestGenericRepositoryAndDI(unittest.TestCase):
         self.assertEqual(res_checkout.value.amount, 20400.0)
         self.assertEqual(len(notifier.messages), 2)
 
+
 class TestDTOAndComparisons(unittest.TestCase):
     def test_dto_payload_conversion(self) -> None:
         payload: VehiclePayload = {
@@ -278,6 +281,7 @@ class TestDTOAndComparisons(unittest.TestCase):
         res2 = comp_proc.process_lines([line])
         self.assertEqual(res1[0].full_name, res2[0].full_name)
         self.assertEqual(res1[0].price, res2[0].price)
+
 
 if __name__ == "__main__":
     unittest.main()

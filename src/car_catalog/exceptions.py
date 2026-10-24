@@ -1,16 +1,21 @@
 from typing import Any
 
+
 class ApplicationError(Exception):
     pass
+
 
 class ConfigurationError(ApplicationError):
     pass
 
+
 class DataError(ApplicationError):
     pass
 
+
 class DataImportError(DataError):
     pass
+
 
 class RecordValidationError(DataError):
     def __init__(
@@ -26,8 +31,10 @@ class RecordValidationError(DataError):
         self.field = field
         self.raw_record = raw_record
 
+
 class DataExportError(DataError):
     pass
+
 
 class StorageError(ApplicationError):
     pass

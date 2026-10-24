@@ -2,6 +2,7 @@ import pytest
 from car_catalog.exceptions import RecordValidationError
 from car_catalog.validators import parse_car_record
 
+
 @pytest.mark.unit
 def test_parse_valid_car_record() -> None:
     record = {
@@ -20,6 +21,7 @@ def test_parse_valid_car_record() -> None:
     assert car.price == pytest.approx(26000.0)
     assert car.mileage == pytest.approx(45000.0)
 
+
 @pytest.mark.unit
 def test_parse_valid_record_with_id_key() -> None:
     record = {
@@ -33,6 +35,7 @@ def test_parse_valid_record_with_id_key() -> None:
     car = parse_car_record(record, line_number=2)
     assert car.id == 99
     assert car.brand == "Honda"
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
@@ -72,6 +75,7 @@ def test_parse_invalid_car_records(
 
     assert exc_info.value.field == expected_field
     assert exc_info.value.line_number == 42
+
 
 @pytest.mark.unit
 def test_exception_chaining_on_invalid_numeric_conversion() -> None:

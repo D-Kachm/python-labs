@@ -9,6 +9,7 @@ from car_catalog.protocols import HasId
 
 T = TypeVar("T", bound=HasId)
 
+
 class InMemoryRepository(Repository[T], Generic[T]):
     def __init__(self) -> None:
         self._items: dict[int, T] = {}
@@ -43,8 +44,10 @@ class InMemoryRepository(Repository[T], Generic[T]):
     def __getitem__(self, item_id: int) -> T:
         return self._items[item_id]
 
+
 class VehicleRepository(InMemoryRepository[Vehicle]):
     pass
+
 
 class SqlAlchemyManufacturerRepository:
     def __init__(self, session: Session) -> None:
@@ -74,6 +77,7 @@ class SqlAlchemyManufacturerRepository:
         self.session.delete(manufacturer)
         self.session.commit()
         return True
+
 
 class SqlAlchemyCarRepository:
     def __init__(self, session: Session) -> None:
@@ -193,8 +197,10 @@ class SqlAlchemyCarRepository:
             for row in rows
         ]
 
+
 ManufacturerRepository = SqlAlchemyManufacturerRepository
 CarRepository = SqlAlchemyCarRepository
+
 
 def find_cars_by_manufacturer_dbapi(
     database_path: str,
@@ -214,6 +220,7 @@ def find_cars_by_manufacturer_dbapi(
         )
         return cursor.fetchall()
 
+
 def bulk_update_prices_by_manufacturer(
     session: Session,
     manufacturer_id: int,
@@ -231,9 +238,7 @@ def bulk_update_prices_by_manufacturer(
         for car in cars:
             new_price = round(car.price * multiplier, 2)
             if new_price > max_price_limit:
-                raise ValueError(
-                    f"New price {new_price} for car ID {car.id} exceeds maximum limit {max_price_limit}"
-                )
+                raise ValueError(f"New price {new_price} for car ID {car.id} exceeds maximum limit {max_price_limit}")
             car.price = new_price
 
         session.commit()

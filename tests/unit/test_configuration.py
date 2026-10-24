@@ -1,7 +1,8 @@
 from pathlib import Path
 import pytest
-from car_catalog.config import AppConfig, load_config, validate_config
+from car_catalog.config import AppConfig, load_config
 from car_catalog.exceptions import ConfigurationError
+
 
 @pytest.mark.unit
 def test_load_valid_yaml_config(sample_yaml_config: Path) -> None:
@@ -16,11 +17,13 @@ def test_load_valid_yaml_config(sample_yaml_config: Path) -> None:
     assert config.processing.filters.max_price == pytest.approx(80000.0)
     assert config.logging.level == "INFO"
 
+
 @pytest.mark.unit
 def test_load_config_missing_file_raises_error(tmp_path: Path) -> None:
     non_existent = tmp_path / "does_not_exist.yaml"
     with pytest.raises(ConfigurationError, match="Configuration file not found"):
         load_config(non_existent)
+
 
 @pytest.mark.unit
 def test_load_config_invalid_yaml_syntax(tmp_path: Path) -> None:
@@ -28,6 +31,7 @@ def test_load_config_invalid_yaml_syntax(tmp_path: Path) -> None:
     bad_yaml.write_text("app: [broken: yaml: syntax", encoding="utf-8")
     with pytest.raises(ConfigurationError, match="Invalid YAML configuration"):
         load_config(bad_yaml)
+
 
 @pytest.mark.unit
 def test_config_invalid_year_range_raises_error(tmp_path: Path, sample_csv_file: Path) -> None:
@@ -48,6 +52,7 @@ processing:
     with pytest.raises(ConfigurationError, match="max_year cannot be less than min_year"):
         load_config(bad_config)
 
+
 @pytest.mark.unit
 def test_config_invalid_price_range_raises_error(tmp_path: Path, sample_csv_file: Path) -> None:
     bad_config = tmp_path / "bad_price.yaml"
@@ -67,6 +72,7 @@ processing:
     with pytest.raises(ConfigurationError, match="max_price cannot be less than min_price"):
         load_config(bad_config)
 
+
 @pytest.mark.unit
 def test_config_missing_input_file_raises_error(tmp_path: Path) -> None:
     missing_input = tmp_path / "missing_input.yaml"
@@ -82,6 +88,7 @@ output:
     with pytest.raises(ConfigurationError, match="Input file does not exist"):
         load_config(missing_input)
 
+
 @pytest.mark.unit
 def test_config_env_overrides_with_monkeypatch(
     sample_yaml_config: Path,
@@ -93,6 +100,7 @@ def test_config_env_overrides_with_monkeypatch(
     config = load_config(sample_yaml_config)
     assert config.processing.skip_invalid is False
     assert config.logging.level == "DEBUG"
+
 
 @pytest.mark.unit
 def test_config_env_removal_with_monkeypatch(

@@ -1,58 +1,30 @@
-from typing import Any, Callable, Sequence
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass
+import logging
+from pathlib import Path
+import shutil
+from typing import Any
 from car_catalog.abstractions import DiscountPolicy, Repository
-from car_catalog.analytics import (
-    calculate_average_price as legacy_avg_price,
-    find_lowest_mileage_car as legacy_lowest_mileage,
-    find_most_expensive_car as legacy_most_expensive,
-    sort_by_price as legacy_sort_by_price,
-)
-from car_catalog.batches import batched_cars, dynamic_batched
+from car_catalog.config import AppConfig, FilterConfig
 from car_catalog.criteria import BrandAndModelCriteria, BrandCriteria, YearRangeCriteria
 from car_catalog.dto import Result
-from car_catalog.filters import (
-    filter_by_brand_and_year_stream,
-    filter_by_brand_stream,
-    filter_by_year_stream,
-    filter_cars_stream,
-    validate_cars,
-)
+from car_catalog.exceptions import RecordValidationError
+from car_catalog.exporters import export_invalid_records_csv, get_exporter
 from car_catalog.models import Car, Vehicle
-from car_catalog.parsers import clean_lines, parse_csv_rows
-from car_catalog.pipeline import (
-    build_streaming_pipeline,
-    export_stream_to_csv,
-    find_first_car,
-)
-from car_catalog.processors import (
-    create_car_index,
-    filter_by_brand,
-    filter_by_year,
-    find_car_by_id,
-    get_unique_brands,
-)
+from car_catalog.processors import filter_by_brand
 from car_catalog.protocols import (
     AsyncExternalMarketClient,
     ExternalVehicleInfoService,
     SearchCriteria,
     VehicleNotifier,
 )
-from car_catalog.readers import infinite_car_stream, read_lines, read_multiple_files
-from car_catalog.streaming_analytics import (
-    streaming_accumulate_prices,
-    streaming_average_price,
-    streaming_find_lowest_mileage,
-    streaming_find_most_expensive,
-    streaming_groupby_brand,
-    streaming_min_max_price,
-    streaming_pairwise_price_diff,
-    streaming_statistics,
-)
-from car_catalog.transformations import (
-    apply_price_discount,
-    convert_currency,
-    normalize_car_names,
-)
+from car_catalog.readers import read_file_rows
+from car_catalog.utils import logged_operation
+from car_catalog.validators import parse_car_record
 from car_catalog.value_objects import Money
+
+service_logger = logging.getLogger(__name__)
+
 
 class CatalogService:
     def __init__(
@@ -140,8 +112,10 @@ class CatalogService:
         )
         return Result(value=final_price, error=None)
 
+
 def search_by_brand(cars: list[Car], brand: str) -> list[Car]:
     return filter_by_brand(cars, brand)
+
 
 def process_pipeline(cars: list[Car], *operations: Callable[[list[Car]], list[Car]]) -> list[Car]:
     result = cars
@@ -149,19 +123,6 @@ def process_pipeline(cars: list[Car], *operations: Callable[[list[Car]], list[Ca
         result = op(result)
     return result
 
-import logging
-import shutil
-from dataclasses import dataclass
-from collections.abc import Iterable, Iterator
-from pathlib import Path
-from car_catalog.config import AppConfig, FilterConfig
-from car_catalog.exceptions import RecordValidationError
-from car_catalog.exporters import export_invalid_records_csv, get_exporter
-from car_catalog.readers import read_file_rows
-from car_catalog.utils import logged_operation
-from car_catalog.validators import parse_car_record
-
-service_logger = logging.getLogger(__name__)
 
 @dataclass
 class ImportStatistics:
@@ -169,6 +130,7 @@ class ImportStatistics:
     valid: int = 0
     invalid: int = 0
     exported: int = 0
+
 
 def import_cars(
     path: Path,
@@ -186,18 +148,21 @@ def import_cars(
             statistics.invalid += 1
             service_logger.warning("Invalid record at line %s: %s", error.line_number, error)
             if error_sink is not None:
-                error_sink.append({
-                    "line_number": error.line_number,
-                    "field": error.field,
-                    "message": str(error),
-                    "raw_data": row,
-                })
+                error_sink.append(
+                    {
+                        "line_number": error.line_number,
+                        "field": error.field,
+                        "message": str(error),
+                        "raw_data": row,
+                    }
+                )
             if skip_invalid:
                 continue
             raise
         else:
             statistics.valid += 1
             yield car
+
 
 def filter_imported_cars(
     cars: Iterable[Car],
@@ -206,6 +171,7 @@ def filter_imported_cars(
     for car in cars:
         if filters.min_year <= car.year <= filters.max_year and filters.min_price <= car.price <= filters.max_price:
             yield car
+
 
 def run_import_export_pipeline(config: AppConfig) -> ImportStatistics:
     with logged_operation("Car import/export pipeline"):
@@ -233,7 +199,9 @@ def run_import_export_pipeline(config: AppConfig) -> ImportStatistics:
 
         if error_sink and config.processing.error_csv_path is not None:
             export_invalid_records_csv(error_records, config.processing.error_csv_path)
-            service_logger.info("Exported %s invalid records to %s", len(error_records), config.processing.error_csv_path)
+            service_logger.info(
+                "Exported %s invalid records to %s", len(error_records), config.processing.error_csv_path
+            )
 
         service_logger.info(
             "Total=%s, valid=%s, invalid=%s, exported=%s",
@@ -243,6 +211,7 @@ def run_import_export_pipeline(config: AppConfig) -> ImportStatistics:
             statistics.exported,
         )
         return statistics
+
 
 class VehicleEnrichmentService:
     def __init__(self, external_service: ExternalVehicleInfoService) -> None:
@@ -254,6 +223,7 @@ class VehicleEnrichmentService:
         data = self._external_service.fetch_vehicle_specs(vin)
         return data
 
+
 class AsyncVehicleMarketService:
     def __init__(self, client: AsyncExternalMarketClient) -> None:
         self._client = client
@@ -264,6 +234,7 @@ class AsyncVehicleMarketService:
         if price_val is None:
             raise ValueError("Price not found in market evaluation")
         return float(price_val)
+
 
 async def async_run_import_export_pipeline(
     config: AppConfig,

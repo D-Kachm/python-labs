@@ -9,6 +9,7 @@ from car_catalog.models import Car
 from car_catalog.pipeline import build_streaming_pipeline, find_first_car
 from car_catalog.streaming_analytics import streaming_statistics
 
+
 def generate_cars_csv(path: Path, count: int, invalid_ratio: float = 0.005) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     brands_models = [
@@ -47,6 +48,7 @@ def generate_cars_csv(path: Path, count: int, invalid_ratio: float = 0.005) -> N
             mileage = round(5000.0 + float((idx * 123) % 350000) + rnd.uniform(0, 500), 1)
             writer.writerow([idx, brand, f"{model}-{idx}", year, f"{price:.2f}", f"{mileage:.1f}"])
 
+
 def measure_peak_memory_and_time(func: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, float, float]:
     tracemalloc.start()
     start_time = perf_counter()
@@ -55,6 +57,7 @@ def measure_peak_memory_and_time(func: Callable[..., Any], *args: Any, **kwargs:
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     return result, elapsed, float(peak)
+
 
 def run_eager_pipeline(path: Path, min_year: int = 2015) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
@@ -96,6 +99,7 @@ def run_eager_pipeline(path: Path, min_year: int = 2015) -> dict[str, Any]:
         "lowest_mileage": lowest_mileage,
     }
 
+
 def run_lazy_pipeline(path: Path, min_year: int = 2015) -> dict[str, Any]:
     error_tracker: dict[str, int] = {}
     pipeline = build_streaming_pipeline(path, min_year=min_year, error_tracker=error_tracker)
@@ -103,17 +107,19 @@ def run_lazy_pipeline(path: Path, min_year: int = 2015) -> dict[str, Any]:
     stats["invalid_records"] = error_tracker.get("invalid_records", 0)
     return stats
 
+
 def measure_ttfr(path: Path, min_year: int = 2015) -> tuple[float, float]:
     start_eager = perf_counter()
-    eager_res = run_eager_pipeline(path, min_year=min_year)
+    _eager_res = run_eager_pipeline(path, min_year=min_year)
     eager_ttfr = perf_counter() - start_eager
 
     start_lazy = perf_counter()
     pipeline = build_streaming_pipeline(path, min_year=min_year)
-    first_car = next(pipeline, None)
+    _first_car = next(pipeline, None)
     lazy_ttfr = perf_counter() - start_lazy
 
     return eager_ttfr, lazy_ttfr
+
 
 def run_streaming_benchmark(sizes: list[int] | None = None, base_dir: Path | None = None) -> list[dict[str, Any]]:
     if sizes is None:
@@ -150,6 +156,7 @@ def run_streaming_benchmark(sizes: list[int] | None = None, base_dir: Path | Non
         benchmark_results.append(row)
 
     return benchmark_results
+
 
 def benchmark_early_termination(path: Path) -> dict[str, Any]:
     target_price = 87000.0

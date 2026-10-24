@@ -2,6 +2,7 @@ from typing import Any
 from car_catalog.exceptions import RecordValidationError
 from car_catalog.models import Car
 
+
 def parse_car_record(
     row: dict[str, Any],
     *,

@@ -3,9 +3,8 @@ from pathlib import Path
 from typing import Any
 import pytest
 from sqlalchemy.orm import Session
-from car_catalog.abstractions import NoDiscount, PercentageDiscount
 from car_catalog.models import Car, ElectricCar, Vehicle
-from car_catalog.repositories import VehicleRepository
+
 
 @pytest.fixture
 def sample_car() -> Car:
@@ -17,6 +16,7 @@ def sample_car() -> Car:
         price=26000.0,
         mileage=45000,
     )
+
 
 @pytest.fixture
 def sample_electric_car() -> ElectricCar:
@@ -30,6 +30,7 @@ def sample_electric_car() -> ElectricCar:
         battery_capacity=75.0,
         range_km=500,
     )
+
 
 @pytest.fixture
 def sample_cars_list(sample_car: Car, sample_electric_car: ElectricCar) -> list[Vehicle]:
@@ -59,6 +60,7 @@ def sample_cars_list(sample_car: Car, sample_electric_car: ElectricCar) -> list[
     )
     return [sample_car, sample_electric_car, car_bmw, car_honda, car_audi]
 
+
 @pytest.fixture
 def car_factory() -> Callable[..., Car]:
     def _create_car(
@@ -78,7 +80,9 @@ def car_factory() -> Callable[..., Car]:
             price=price,
             mileage=mileage,
         )
+
     return _create_car
+
 
 @pytest.fixture
 def sample_csv_file(tmp_path: Path) -> Path:
@@ -91,6 +95,7 @@ def sample_csv_file(tmp_path: Path) -> Path:
     )
     file_path.write_text(content, encoding="utf-8")
     return file_path
+
 
 @pytest.fixture
 def sample_csv_with_errors(tmp_path: Path) -> Path:
@@ -105,6 +110,7 @@ def sample_csv_with_errors(tmp_path: Path) -> Path:
     )
     file_path.write_text(content, encoding="utf-8")
     return file_path
+
 
 @pytest.fixture
 def sample_yaml_config(tmp_path: Path, sample_csv_file: Path) -> Path:
@@ -138,16 +144,19 @@ logging:
     config_file.write_text(content, encoding="utf-8")
     return config_file
 
+
 @pytest.fixture
 def teardown_tracker() -> Generator[dict[str, Any], None, None]:
     tracker: dict[str, Any] = {"initialized": True, "cleaned_up": False}
     yield tracker
     tracker["cleaned_up"] = True
 
+
 @pytest.fixture(autouse=True)
 def clean_app_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("APP_SKIP_INVALID", raising=False)
     monkeypatch.delenv("APP_LOG_LEVEL", raising=False)
+
 
 @pytest.fixture
 def db_engine() -> Generator[Any, None, None]:
@@ -160,16 +169,20 @@ def db_engine() -> Generator[Any, None, None]:
     Base.metadata.drop_all(engine)
     engine.dispose()
 
+
 @pytest.fixture
 def db_session(db_engine: Any) -> Generator[Any, None, None]:
     from sqlalchemy.orm import sessionmaker
+
     SessionLocal = sessionmaker(bind=db_engine, autoflush=False, expire_on_commit=False)
     with SessionLocal() as session:
         yield session
 
+
 @pytest.fixture
 def populated_db_session(db_session: Any) -> Any:
     from car_catalog.db_models import CarEntity, Manufacturer
+
     toyota = Manufacturer(name="Toyota", country="Japan")
     bmw = Manufacturer(name="BMW", country="Germany")
     tesla = Manufacturer(name="Tesla", country="USA")
@@ -212,6 +225,7 @@ def populated_db_session(db_session: Any) -> Any:
     db_session.commit()
     return db_session
 
+
 @pytest.fixture
 def api_client(populated_db_session: Session) -> Generator[Any, None, None]:
     from fastapi.testclient import TestClient
@@ -226,6 +240,7 @@ def api_client(populated_db_session: Session) -> Generator[Any, None, None]:
         yield client
     finally:
         app.dependency_overrides.clear()
+
 
 @pytest.fixture
 async def async_api_client(populated_db_session: Session) -> AsyncGenerator[Any, None]:
