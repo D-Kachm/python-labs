@@ -1,20 +1,20 @@
 # Python Labs
 
 Навчальний проєкт з дисципліни «Професійний Python». 
-Містить каталог автомобілів (Варіант 5), який розвивається протягом курсу.
+Містить каталог автомобілів (Варіант 5), який модульно розвивається протягом 10 лабораторних робіт.
 
 ## Author
 Студент: Качмар Денис Богданович  
 Група: ФЕП-33с  
 
 ## Requirements
-Python 3.11+
+Python 3.11+ (рекомендовано 3.12)
 
 ## Installation & Setup
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install -e .
+python3 -m pip install -e ".[dev]"
 ```
 
 ## Running the Application
@@ -26,7 +26,16 @@ car-catalog
 python3 -m car_catalog.main
 ```
 
-### 2. Лабораторна робота №3 (Потоковий конвеєр, ітератори та генератори):
+### 2. Лабораторна робота №4 (Професійне ООП та система типів Python):
+```bash
+# Демонстрація ООП, протоколів, DI, Value Objects та Generic Repository:
+python3 -m car_catalog.main --oop-demo
+
+# Статична перевірка типів через mypy у строгому режимі:
+mypy src tests
+```
+
+### 3. Лабораторна робота №3 (Потоковий конвеєр, ітератори та генератори):
 ```bash
 # Демонстрація повного streaming pipeline (читання, валідація, фільтрація, batching, itertools):
 python3 -m car_catalog.main --stream-demo
@@ -38,7 +47,7 @@ python3 -m car_catalog.main --stream-benchmark
 python3 -m car_catalog.main --generate-dataset 100000
 ```
 
-### 3. Лабораторна робота №2 (Структури даних та декомпозиція):
+### 4. Лабораторна робота №2 (Структури даних та декомпозиція):
 ```bash
 # Автоматична демонстрація функціоналу Лаб 2:
 python3 -m car_catalog.main --demo
@@ -49,5 +58,10 @@ python3 -m car_catalog.main --benchmark
 
 ## Running Tests
 ```bash
-python3 -m unittest discover tests/ -v
+PYTHONPATH=src python3 -m unittest discover tests/ -v
+```
+
+## Static Type Checking
+```bash
+mypy src tests
 ```

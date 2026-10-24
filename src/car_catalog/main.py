@@ -4,6 +4,12 @@ from itertools import islice
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+from car_catalog.abstractions import (
+    DiscountPolicy,
+    NoDiscount,
+    PercentageDiscount,
+    ThresholdDiscount,
+)
 from car_catalog.analytics import (
     calculate_average_price,
     calculate_average_prices,
@@ -21,10 +27,35 @@ from car_catalog.benchmark import (
     generate_cars_csv,
     run_streaming_benchmark,
 )
+from car_catalog.comparisons import (
+    ComposedVehicleProcessor,
+    CsvVehicleProcessor,
+    DecoupledService,
+    TightlyCoupledService,
+    VehicleFormatter,
+    VehicleParser,
+    VehicleValidator,
+)
+from car_catalog.criteria import (
+    AndCriteria,
+    BrandAndModelCriteria,
+    BrandCriteria,
+    ElectricOnlyCriteria,
+    PriceRangeCriteria,
+    YearRangeCriteria,
+)
 from car_catalog.data import DEMO_CARS, generate_cars
 from car_catalog.decorators import measure_time, repeat
+from car_catalog.dto import (
+    ElectricVehiclePayload,
+    Result,
+    VehiclePayload,
+    electric_vehicle_from_payload,
+    vehicle_from_payload,
+)
 from car_catalog.iterators import CarCatalogIterable, recursive_flatten
-from car_catalog.models import Car
+from car_catalog.models import Car, ElectricCar, Vehicle, VehicleCatalog
+from car_catalog.notifiers import ConsoleNotifier, RecordingNotifier
 from car_catalog.pipeline import (
     build_streaming_pipeline,
     export_stream_to_csv,
@@ -42,7 +73,11 @@ from car_catalog.processors import (
     group_by_brand,
     group_by_brand_and_year,
 )
+from car_catalog.protocols import SearchCriteria, VehicleNotifier
 from car_catalog.readers import infinite_car_stream, read_multiple_files
+from car_catalog.repositories import InMemoryRepository, VehicleRepository
+from car_catalog.services import CatalogService
+from car_catalog.specifications import VehicleSpecification
 from car_catalog.streaming_analytics import (
     streaming_accumulate_prices,
     streaming_average_price,
@@ -52,6 +87,7 @@ from car_catalog.streaming_analytics import (
     streaming_pairwise_price_diff,
     streaming_statistics,
 )
+from car_catalog.value_objects import Mileage, Money, VIN
 
 def print_cars(title: str, items: list[Car]) -> None:
     print(f"\n{title}")
@@ -272,8 +308,143 @@ def run_stream_benchmark_cli() -> None:
     print(f"  Прискорення: {early_res['speedup']:.1f}x | Економія пам'яті: {early_res['memory_saving_ratio']:.1f}x")
     print("=" * 80)
 
+def run_oop_demo() -> None:
+    print("\n" + "=" * 80)
+    print("  ДЕМОНСТРАЦІЯ ПРОФЕСІЙНОГО ООП ТА СИСТЕМИ ТИПІВ (ЛАБОРАТОРНА РОБОТА №4)")
+    print("  (Варіант 5: Каталог автомобілів | SOLID, Protocols, Generic Repository, Value Objects)")
+    print("=" * 80)
+
+    print("\n1. Імутабельні Value Objects (dataclass frozen=True, slots=True):")
+    price1 = Money(25000.0, "USD")
+    price2 = Money(3500.0, "USD")
+    total_price = price1 + price2
+    print(f"   Money: {price1} + {price2} = {total_price}")
+
+    mileage = Mileage(45000.0, "km")
+    vin = VIN("1HGCR2F83HA123456")
+    print(f"   Mileage: {mileage} | VIN: {vin}")
+
+    try:
+        _ = Money(-500.0, "USD")
+    except ValueError as e:
+        print(f"   Валідація Money (від'ємна сума): перехоплено ValueError -> {e}")
+
+    print("\n2. Domain Entities, Наслідування та Композиція (VehicleSpecification):")
+    spec_ice = VehicleSpecification(
+        engine_type="2.5L I4 DOHC",
+        transmission="Automatic 8-speed",
+        horsepower=203,
+        fuel_type="Gasoline",
+        body_type="Sedan",
+    )
+    car = Car(
+        id=1,
+        brand="Toyota",
+        model="Camry",
+        year=2021,
+        price=24500.0,
+        mileage=42000.0,
+        specification=spec_ice,
+    )
+    print(f"   Car (Vehicle subclass): {car}")
+    print(f"   Композиція зі специфікацією: {car.specification}")
+
+    spec_ev = VehicleSpecification(
+        engine_type="Dual Electric Motors",
+        transmission="Single-speed fixed gear",
+        horsepower=450,
+        fuel_type="Electricity",
+        body_type="Sedan",
+    )
+    ev = ElectricCar(
+        id=2,
+        brand="Tesla",
+        model="Model 3 Long Range",
+        year=2023,
+        price=41000.0,
+        mileage=18000.0,
+        battery_capacity=82.0,
+        range_km=560.0,
+        specification=spec_ev,
+    )
+    print(f"   ElectricCar (спеціалізація Car): {ev}")
+    print(f"   Споживання енергії: {ev.energy_consumption} kWh/100km")
+
+    print("\n3. Кастомна колекція VehicleCatalog (Dunder methods):")
+    catalog = VehicleCatalog([car, ev])
+    extra_car = Car(3, "BMW", "320i", 2020, 27500.0, 53000.0)
+    catalog.add(extra_car)
+    print(f"   __len__: {len(catalog)} автомобілів у каталозі")
+    print(f"   __contains__ (ID=2 in catalog): {2 in catalog}")
+    print(f"   __getitem__ (перше авто): {catalog[0].full_name}")
+    print(f"   Середня ціна в каталозі: {catalog.average_price():.2f}$")
+    most_exp = catalog.most_expensive()
+    print(f"   Найдорожче авто: {most_exp.full_name if most_exp else 'None'} ({most_exp.price if most_exp else 0}$)")
+
+    print("\n4. Generic Repository (InMemoryRepository[Vehicle] із TypeVar):")
+    repo = VehicleRepository()
+    repo.add(car)
+    repo.add(ev)
+    repo.add(extra_car)
+    print(f"   Збережено об'єктів у Generic Repository: {repo.count()}")
+    retrieved = repo.get(2)
+    print(f"   Отримано за ID 2: {retrieved.full_name if retrieved else 'None'}")
+
+    print("\n5. Пошукові критерії (Strategy Pattern & runtime_checkable Protocol):")
+    crit_brand = BrandCriteria("Tesla")
+    crit_price = PriceRangeCriteria(20000.0, 30000.0)
+    crit_composite = AndCriteria([YearRangeCriteria(2021, 2024), PriceRangeCriteria(20000.0, 50000.0)])
+
+    res_tesla = repo.filter(crit_brand.matches)
+    res_price = repo.filter(crit_price.matches)
+    res_comp = repo.filter(crit_composite.matches)
+    print(f"   Пошук за маркою Tesla: {[v.full_name for v in res_tesla]}")
+    print(f"   Пошук у ціновому діапазоні 20k-30k$: {[v.full_name for v in res_price]}")
+    print(f"   Композитний пошук (2021-2024 рр. та 20k-50k$): {[v.full_name for v in res_comp]}")
+    print(f"   Перевірка протоколу isinstance(crit_brand, SearchCriteria): {isinstance(crit_brand, SearchCriteria)}")
+
+    print("\n6. Application Service та Dependency Injection (CatalogService):")
+    notifier = ConsoleNotifier()
+    discount = PercentageDiscount(10.0)
+    service = CatalogService(repository=repo, notifier=notifier, discount_policy=discount)
+
+    checkout_res = service.checkout_vehicle(2, recipient="client@example.com")
+    if checkout_res.success and checkout_res.value:
+        print(f"   Результат оформлення авто (зі знижкою 10%): {checkout_res.value}")
+
+    print("\n7. DTO, TypedDict та Generic Result[T]:")
+    payload: VehiclePayload = {
+        "id": 4,
+        "brand": "Audi",
+        "model": "A4",
+        "year": 2022,
+        "price": 31500.0,
+        "mileage": 32000.0,
+        "horsepower": 190,
+        "body_type": "Sedan",
+    }
+    car_from_dto = vehicle_from_payload(payload)
+    add_res = service.add_vehicle(car_from_dto)
+    print(f"   Конвертація з TypedDict у Domain Entity: {car_from_dto}")
+    print(f"   Generic Result success: {add_res.success} | Value: {add_res.value.full_name if add_res.value else None}")
+
+    print("\n8. Порівняння архітектурних підходів (Sections 72 & 73):")
+    print("   [Section 72 - Dependency Injection]:")
+    print("     - TightlyCoupledService: створює конкретні залежності жорстко у __init__ (високий coupling).")
+    print("     - DecoupledService: отримує абстракції через DI (низький coupling, ізольоване тестування).")
+
+    csv_raw = "10,Ford,Focus,2019,14500.0,85000.0"
+    inh_proc = CsvVehicleProcessor()
+    inh_res = inh_proc.process(csv_raw)
+    comp_proc = ComposedVehicleProcessor(VehicleParser(), VehicleValidator(), VehicleFormatter())
+    comp_res = comp_proc.process_lines([csv_raw])
+    print("   [Section 73 - Inheritance vs Composition]:")
+    print(f"     - Inheritance Processor результат: {inh_res[0].full_name}")
+    print(f"     - Composed Processor результат:    {comp_res[0].full_name}")
+    print("     - Висновок: композиція усуває монолітність базового класу та ізолює відповідальності.")
+
 def print_menu() -> None:
-    print("\n--- Меню каталогу автомобілів (Лабораторні роботи №1 - №3) ---")
+    print("\n--- Меню каталогу автомобілів (Лабораторні роботи №1 - №4) ---")
     print("  [Лабораторна робота №2 - Структури даних]")
     print("   1. Показати всі автомобілі")
     print("   2. Пошук за маркою")
@@ -293,7 +464,9 @@ def print_menu() -> None:
     print("  15. Експериментальний бенчмарк: Eager vs Lazy (10k, 100k, 500k записів)")
     print("  16. Демонстрація пакетної обробки (Batching через islice)")
     print("  17. Генерація великого тестового набору даних CSV")
-    print("  18. Вихід")
+    print("  [Лабораторна робота №4 - Професійне ООП та система типів]")
+    print("  18. Демонстрація ООП, протоколів, DI та Generic Repository (Лаб 4)")
+    print("  19. Вихід")
 
 def run_menu(cars: list[Car]) -> None:
     history: deque[str] = deque(maxlen=10)
@@ -301,7 +474,7 @@ def run_menu(cars: list[Car]) -> None:
 
     while True:
         print_menu()
-        cmd = input("Оберіть команду (1-18): ").strip()
+        cmd = input("Оберіть команду (1-19): ").strip()
         history.append(f"Команда {cmd}")
 
         if cmd == "1":
@@ -354,7 +527,7 @@ def run_menu(cars: list[Car]) -> None:
             if expensive:
                 print(f"Найдорожче авто: {expensive.full_name} ({expensive.price}$)")
             if lowest_m:
-                print(f"Найменший пробіг: {lowest_m.full_name} ({lowest_mileage_car(cars).mileage if lowest_m else 0} км)")
+                print(f"Найменший пробіг: {lowest_m.full_name} ({lowest_m.mileage} км)")
             print(f"Ціновий діапазон (tuple): min={p_range[0]}$, max={p_range[1]}$")
         elif cmd == "8":
             rev = input("Сортувати за спаданням? (y/n): ").strip().lower() == "y"
@@ -391,8 +564,8 @@ def run_menu(cars: list[Car]) -> None:
         elif cmd == "16":
             batch_p = build_streaming_pipeline(Path("data/demo_stream_cars.csv") if Path("data/demo_stream_cars.csv").exists() else Path("data/cars_10000.csv"))
             print("\nДемонстрація batching (порціями по 5):")
-            for i, b in enumerate(islice(batched_cars(batch_p, 5), 3), 1):
-                print(f"  Батч #{i}: {[c.full_name for c in b]}")
+            for i, batch in enumerate(islice(batched_cars(batch_p, 5), 3), 1):
+                print(f"  Батч #{i}: {[c.full_name for c in batch]}")
         elif cmd == "17":
             try:
                 cnt_str = input("Введіть кількість записів (за замовчуванням 100000): ").strip()
@@ -404,6 +577,8 @@ def run_menu(cars: list[Car]) -> None:
             except ValueError:
                 print("Помилка: введіть ціле число.")
         elif cmd == "18":
+            run_oop_demo()
+        elif cmd == "19":
             print("Роботу завершено. До побачення!")
             break
         else:
@@ -411,7 +586,9 @@ def run_menu(cars: list[Car]) -> None:
 
 def main() -> None:
     cars = list(DEMO_CARS)
-    if "--stream-demo" in sys.argv:
+    if "--oop-demo" in sys.argv:
+        run_oop_demo()
+    elif "--stream-demo" in sys.argv:
         run_stream_demo()
     elif "--stream-benchmark" in sys.argv:
         run_stream_benchmark_cli()

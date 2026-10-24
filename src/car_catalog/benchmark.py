@@ -47,7 +47,7 @@ def generate_cars_csv(path: Path, count: int, invalid_ratio: float = 0.005) -> N
             mileage = round(5000.0 + float((idx * 123) % 350000) + rnd.uniform(0, 500), 1)
             writer.writerow([idx, brand, f"{model}-{idx}", year, f"{price:.2f}", f"{mileage:.1f}"])
 
-def measure_peak_memory_and_time(func: Callable, *args: Any, **kwargs: Any) -> tuple[Any, float, float]:
+def measure_peak_memory_and_time(func: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, float, float]:
     tracemalloc.start()
     start_time = perf_counter()
     result = func(*args, **kwargs)

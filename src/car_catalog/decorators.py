@@ -2,7 +2,7 @@ from functools import wraps
 from time import perf_counter
 from typing import Any, Callable
 
-def measure_time(func: Callable) -> Callable:
+def measure_time(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         start_time = perf_counter()
@@ -12,8 +12,8 @@ def measure_time(func: Callable) -> Callable:
         return result
     return wrapper
 
-def repeat(count: int) -> Callable:
-    def decorator(func: Callable) -> Callable:
+def repeat(count: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             result = None

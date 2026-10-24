@@ -28,16 +28,16 @@ def filter_cars(cars: list[Car], predicate: Callable[[Car], bool]) -> list[Car]:
     return [c for c in cars if predicate(c)]
 
 def group_by_brand(cars: list[Car]) -> dict[str, list[Car]]:
-    result = defaultdict(list)
+    result: defaultdict[str, list[Car]] = defaultdict(list)
     for car in cars:
         result[car.brand].append(car)
     return dict(result)
 
 def group_by_brand_and_year(cars: list[Car]) -> dict[str, dict[int, list[Car]]]:
-    grouped = defaultdict(lambda: defaultdict(list))
+    grouped: defaultdict[str, defaultdict[int, list[Car]]] = defaultdict(lambda: defaultdict(list))
     for car in cars:
         grouped[car.brand][car.year].append(car)
     return {brand: dict(years) for brand, years in grouped.items()}
 
-def count_by_brand(cars: list[Car]) -> Counter:
+def count_by_brand(cars: list[Car]) -> Counter[str]:
     return Counter(car.brand for car in cars)
