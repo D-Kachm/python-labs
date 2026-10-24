@@ -30,7 +30,12 @@ from car_catalog.processors import (
     find_car_by_id,
     get_unique_brands,
 )
-from car_catalog.protocols import SearchCriteria, VehicleNotifier
+from car_catalog.protocols import (
+    AsyncExternalMarketClient,
+    ExternalVehicleInfoService,
+    SearchCriteria,
+    VehicleNotifier,
+)
 from car_catalog.readers import infinite_car_stream, read_lines, read_multiple_files
 from car_catalog.streaming_analytics import (
     streaming_accumulate_prices,
@@ -237,4 +242,60 @@ def run_import_export_pipeline(config: AppConfig) -> ImportStatistics:
             statistics.invalid,
             statistics.exported,
         )
+        return statistics
+
+class VehicleEnrichmentService:
+    def __init__(self, external_service: ExternalVehicleInfoService) -> None:
+        self._external_service = external_service
+
+    def enrich_specs(self, vin: str) -> dict[str, Any]:
+        if not vin or len(vin) != 17:
+            raise ValueError("VIN must contain exactly 17 characters")
+        data = self._external_service.fetch_vehicle_specs(vin)
+        return data
+
+class AsyncVehicleMarketService:
+    def __init__(self, client: AsyncExternalMarketClient) -> None:
+        self._client = client
+
+    async def get_market_price(self, brand: str, model: str, year: int) -> float:
+        data = await self._client.fetch_market_evaluation(brand, model, year)
+        price_val = data.get("estimated_price")
+        if price_val is None:
+            raise ValueError("Price not found in market evaluation")
+        return float(price_val)
+
+async def async_run_import_export_pipeline(
+    config: AppConfig,
+    market_service: AsyncVehicleMarketService | None = None,
+) -> ImportStatistics:
+    with logged_operation("Async car import/export pipeline"):
+        if config.processing.backup_existing and config.output.path.exists():
+            backup_path = config.output.path.with_suffix(config.output.path.suffix + ".bak")
+            shutil.copy2(config.output.path, backup_path)
+
+        statistics = ImportStatistics()
+        error_records: list[dict[str, Any]] = []
+        error_sink = error_records if config.processing.error_csv_path is not None else None
+
+        cars_stream = import_cars(
+            config.input.path,
+            skip_invalid=config.processing.skip_invalid,
+            statistics=statistics,
+            error_sink=error_sink,
+            file_format=config.input.format,
+        )
+
+        filtered_stream = list(filter_imported_cars(cars_stream, config.processing.filters))
+        if market_service is not None:
+            for car in filtered_stream:
+                _ = await market_service.get_market_price(car.brand, car.model, car.year)
+
+        exporter = get_exporter(config.output.format)
+        exported_count = exporter.export(filtered_stream, config.output.path)
+        statistics.exported = exported_count
+
+        if error_sink and config.processing.error_csv_path is not None:
+            export_invalid_records_csv(error_records, config.processing.error_csv_path)
+
         return statistics

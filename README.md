@@ -26,7 +26,22 @@ car-catalog
 python3 -m car_catalog.main
 ```
 
-### 2. Лабораторна робота №5 (Обробка помилок, файли та серіалізація):
+### 2. Лабораторна робота №6 (Автоматизоване тестування Python-програм):
+```bash
+# Запуск повного тестового набору з покриттям коду та перевіркою розгалужень (Branch Coverage):
+pytest -v --cov=car_catalog --cov-branch --cov-report=term-missing --cov-report=html
+
+# Запуск тільки модульних тестів (Unit Tests):
+pytest tests/unit/ -v
+
+# Запуск тільки інтеграційних тестів (Integration Tests):
+pytest tests/integration/ -v
+
+# Запуск 7 експериментів лабораторної роботи №6:
+python3 scripts/run_experiments_lab6.py
+```
+
+### 3. Лабораторна робота №5 (Обробка помилок, файли та серіалізація):
 ```bash
 # Демонстрація надійного імпорту/експорту (fail-fast, tolerant mode, atomic replace, exception chaining):
 python3 -m car_catalog.main --reliable-demo
@@ -35,19 +50,19 @@ python3 -m car_catalog.main --reliable-demo
 python3 -m car_catalog.main --reliable-pipeline config.yaml
 
 # Запуск автоматизованих експериментів 1-5 Лабораторної №5:
-PYTHONPATH=src python3 scripts/run_experiments_lab5.py
+python3 scripts/run_experiments_lab5.py
 ```
 
-### 3. Лабораторна робота №4 (Професійне ООП та система типів Python):
+### 4. Лабораторна робота №4 (Професійне ООП та система типів Python):
 ```bash
 # Демонстрація ООП, протоколів, DI, Value Objects та Generic Repository:
 python3 -m car_catalog.main --oop-demo
 
 # Статична перевірка типів через mypy у строгому режимі:
-mypy src tests
+mypy src tests scripts/run_experiments_lab6.py
 ```
 
-### 3. Лабораторна робота №3 (Потоковий конвеєр, ітератори та генератори):
+### 5. Лабораторна робота №3 (Потоковий конвеєр, ітератори та генератори):
 ```bash
 # Демонстрація повного streaming pipeline (читання, валідація, фільтрація, batching, itertools):
 python3 -m car_catalog.main --stream-demo
@@ -59,7 +74,7 @@ python3 -m car_catalog.main --stream-benchmark
 python3 -m car_catalog.main --generate-dataset 100000
 ```
 
-### 4. Лабораторна робота №2 (Структури даних та декомпозиція):
+### 6. Лабораторна робота №2 (Структури даних та декомпозиція):
 ```bash
 # Автоматична демонстрація функціоналу Лаб 2:
 python3 -m car_catalog.main --demo
@@ -70,10 +85,11 @@ python3 -m car_catalog.main --benchmark
 
 ## Running Tests
 ```bash
-PYTHONPATH=src python3 -m unittest discover tests/ -v
+# Рекомендована команда запуску pytest із формуванням coverage звіту:
+pytest -v --cov=car_catalog --cov-branch --cov-report=term-missing
 ```
 
 ## Static Type Checking
 ```bash
-mypy src tests
+mypy src tests scripts/run_experiments_lab6.py
 ```

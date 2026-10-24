@@ -25,3 +25,11 @@ T = TypeVar("T")
 
 class ReaderProtocol(Protocol[T]):
     def read_all(self) -> list[T]: ...
+
+@runtime_checkable
+class ExternalVehicleInfoService(Protocol):
+    def fetch_vehicle_specs(self, vin: str) -> dict[str, Any]: ...
+
+@runtime_checkable
+class AsyncExternalMarketClient(Protocol):
+    async def fetch_market_evaluation(self, brand: str, model: str, year: int) -> dict[str, Any]: ...
