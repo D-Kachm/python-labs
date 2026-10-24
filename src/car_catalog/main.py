@@ -88,6 +88,12 @@ from car_catalog.streaming_analytics import (
     streaming_statistics,
 )
 from car_catalog.value_objects import Mileage, Money, VIN
+from car_catalog.config import AppConfig, load_config
+from car_catalog.exceptions import ApplicationError, RecordValidationError
+from car_catalog.logging_config import configure_logging
+from car_catalog.services import run_import_export_pipeline
+from car_catalog.utils import logged_operation
+from car_catalog.validators import parse_car_record
 
 def print_cars(title: str, items: list[Car]) -> None:
     print(f"\n{title}")
@@ -443,8 +449,65 @@ def run_oop_demo() -> None:
     print(f"     - Composed Processor результат:    {comp_res[0].full_name}")
     print("     - Висновок: композиція усуває монолітність базового класу та ізолює відповідальності.")
 
+def run_reliable_demo() -> None:
+    print("\n" + "=" * 70)
+    print("ДЕМОНСТРАЦІЯ ЛАБОРАТОРНОЇ РОБОТИ №5: НАДІЙНИЙ ІМПОРТ/ЕКСПОРТ І СЕРІАЛІЗАЦІЯ")
+    print("=" * 70)
+
+    config_path = Path("config.yaml")
+    if not config_path.exists():
+        print(f"Файл конфігурації {config_path} не знайдено.")
+        return
+
+    print("\n1. Завантаження та валідація YAML конфігурації (Fail-fast):")
+    config = load_config(config_path)
+    print(f"   - Вхідний файл:   {config.input.path} ({config.input.format})")
+    print(f"   - Вихідний файл:  {config.output.path} ({config.output.format})")
+    print(f"   - Режим обробки:  skip_invalid={config.processing.skip_invalid}")
+    print(f"   - Фільтр років:   [{config.processing.filters.min_year} - {config.processing.filters.max_year}]")
+    print(f"   - Фільтр цін:     [{config.processing.filters.min_price}$ - {config.processing.filters.max_price}$]")
+    print(f"   - Рівень логу:    {config.logging.level} -> {config.logging.path}")
+
+    print("\n2. Ініціалізація системи логування (logging.basicConfig):")
+    app_logger = configure_logging(config.logging.level, config.logging.path, console=True)
+    app_logger.info("Reliable pipeline demonstration started")
+
+    print("\n3. Виконання надійного потокового конвеєра (Tolerant mode):")
+    stats = run_import_export_pipeline(config)
+    print(f"   - Усього записів у файлі:  {stats.total}")
+    print(f"   - Валідних записів:        {stats.valid}")
+    print(f"   - Некоректних (пропущено): {stats.invalid}")
+    print(f"   - Експортовано у JSON:     {stats.exported}")
+
+    print("\n4. Демонстрація перевірки атомарного виходу (Atomic replacement):")
+    if config.output.path.exists():
+        size_bytes = config.output.path.stat().st_size
+        print(f"   - Файл {config.output.path} створено успішно (розмір: {size_bytes} байт).")
+        tmp_path = config.output.path.with_suffix(config.output.path.suffix + ".tmp")
+        print(f"   - Тимчасовий файл {tmp_path} відсутній (чисте atomic replacement): {not tmp_path.exists()}")
+
+    print("\n5. Демонстрація експорту невалідних записів (Error CSV):")
+    if config.processing.error_csv_path and config.processing.error_csv_path.exists():
+        err_lines = config.processing.error_csv_path.read_text(encoding="utf-8").strip().splitlines()
+        print(f"   - Файл помилок {config.processing.error_csv_path} містить {len(err_lines)-1} відхилених записів.")
+
+    print("\n6. Демонстрація Exception Chaining (ValueError -> RecordValidationError):")
+    invalid_sample = {"vehicle_id": "1", "brand": "Audi", "model": "A4", "year": "invalid_year", "price": "1000", "mileage": "5000"}
+    try:
+        parse_car_record(invalid_sample, line_number=42)
+    except RecordValidationError as exc:
+        print(f"   - Перехоплено: {type(exc).__name__}: {exc}")
+        print(f"   - Причина (chained __cause__): {type(exc.__cause__).__name__}: {exc.__cause__}")
+        print(f"   - Поле помилки: {exc.field}, рядок: {exc.line_number}")
+
+    print("\n7. Демонстрація власного Context Manager (logged_operation):")
+    with logged_operation("Test Context Operation"):
+        print("   - Тіло блоку with виконується під контролем context manager.")
+
+    print("\nДемонстрацію Лабораторної роботи №5 успішно завершено.")
+
 def print_menu() -> None:
-    print("\n--- Меню каталогу автомобілів (Лабораторні роботи №1 - №4) ---")
+    print("\n--- Меню каталогу автомобілів (Лабораторні роботи №1 - №5) ---")
     print("  [Лабораторна робота №2 - Структури даних]")
     print("   1. Показати всі автомобілі")
     print("   2. Пошук за маркою")
@@ -466,7 +529,9 @@ def print_menu() -> None:
     print("  17. Генерація великого тестового набору даних CSV")
     print("  [Лабораторна робота №4 - Професійне ООП та система типів]")
     print("  18. Демонстрація ООП, протоколів, DI та Generic Repository (Лаб 4)")
-    print("  19. Вихід")
+    print("  [Лабораторна робота №5 - Обробка помилок, файли та серіалізація]")
+    print("  19. Надійний конвеєр імпорту/експорту та серіалізація (Лаб 5)")
+    print("  20. Вихід")
 
 def run_menu(cars: list[Car]) -> None:
     history: deque[str] = deque(maxlen=10)
@@ -474,7 +539,7 @@ def run_menu(cars: list[Car]) -> None:
 
     while True:
         print_menu()
-        cmd = input("Оберіть команду (1-19): ").strip()
+        cmd = input("Оберіть команду (1-20): ").strip()
         history.append(f"Команда {cmd}")
 
         if cmd == "1":
@@ -579,6 +644,8 @@ def run_menu(cars: list[Car]) -> None:
         elif cmd == "18":
             run_oop_demo()
         elif cmd == "19":
+            run_reliable_demo()
+        elif cmd == "20":
             print("Роботу завершено. До побачення!")
             break
         else:
@@ -586,7 +653,19 @@ def run_menu(cars: list[Car]) -> None:
 
 def main() -> None:
     cars = list(DEMO_CARS)
-    if "--oop-demo" in sys.argv:
+    if "--reliable-demo" in sys.argv:
+        run_reliable_demo()
+    elif "--reliable-pipeline" in sys.argv:
+        idx = sys.argv.index("--reliable-pipeline")
+        cfg_file = Path(sys.argv[idx + 1]) if len(sys.argv) > idx + 1 and not sys.argv[idx + 1].startswith("--") else Path("config.yaml")
+        try:
+            cfg = load_config(cfg_file)
+            configure_logging(cfg.logging.level, cfg.logging.path, console=cfg.logging.console)
+            run_import_export_pipeline(cfg)
+        except ApplicationError as err:
+            print(f"Application error: {err}", file=sys.stderr)
+            sys.exit(1)
+    elif "--oop-demo" in sys.argv:
         run_oop_demo()
     elif "--stream-demo" in sys.argv:
         run_stream_demo()

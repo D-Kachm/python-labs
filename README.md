@@ -26,7 +26,19 @@ car-catalog
 python3 -m car_catalog.main
 ```
 
-### 2. Лабораторна робота №4 (Професійне ООП та система типів Python):
+### 2. Лабораторна робота №5 (Обробка помилок, файли та серіалізація):
+```bash
+# Демонстрація надійного імпорту/експорту (fail-fast, tolerant mode, atomic replace, exception chaining):
+python3 -m car_catalog.main --reliable-demo
+
+# Запуск конвеєра за конфігураційним файлом:
+python3 -m car_catalog.main --reliable-pipeline config.yaml
+
+# Запуск автоматизованих експериментів 1-5 Лабораторної №5:
+PYTHONPATH=src python3 scripts/run_experiments_lab5.py
+```
+
+### 3. Лабораторна робота №4 (Професійне ООП та система типів Python):
 ```bash
 # Демонстрація ООП, протоколів, DI, Value Objects та Generic Repository:
 python3 -m car_catalog.main --oop-demo

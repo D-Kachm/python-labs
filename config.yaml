@@ -1,0 +1,22 @@
+input:
+  path: data/cars_sample.csv
+  format: csv
+
+output:
+  path: output/cars_exported.json
+  format: json
+
+processing:
+  skip_invalid: true
+  backup_existing: false
+  error_csv_path: output/invalid_cars.csv
+  filters:
+    min_year: 2000
+    max_year: 2026
+    min_price: 5000.0
+    max_price: 100000.0
+
+logging:
+  level: INFO
+  path: logs/application.log
+  console: true
