@@ -5,6 +5,7 @@ from car_catalog.analytics import (
 )
 from car_catalog.profiling import benchmark_repeated, calculate_speedup
 
+
 def run_statistics_benchmark(count: int = 100_000, repeats: int = 5) -> dict[str, float]:
     prices = generate_sample_prices(count, seed=42)
     py_time = benchmark_repeated(statistics_python, prices, repeats=repeats)
@@ -16,6 +17,7 @@ def run_statistics_benchmark(count: int = 100_000, repeats: int = 5) -> dict[str
         "numpy_mean_s": np_time,
         "speedup": speedup,
     }
+
 
 if __name__ == "__main__":
     res = run_statistics_benchmark()

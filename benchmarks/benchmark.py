@@ -19,6 +19,7 @@ from car_catalog.profiling import (
 RESULTS_DIR = Path("benchmarks/results")
 RESULTS_CSV = RESULTS_DIR / "benchmark_results.csv"
 
+
 def run_full_benchmark_suite(
     dataset_sizes: list[int] | None = None,
     workers_list: list[int] | None = None,
@@ -33,8 +34,8 @@ def run_full_benchmark_suite(
 
     for size in dataset_sizes:
         prices = generate_sample_prices(size, seed=42)
-        _, _, base_peak = measure_memory_and_peak(calculate_scores_sequential, prices[:min(size, 10_000)])
-        t_base = benchmark_repeated(calculate_scores_sequential, prices[:min(size, 10_000)], repeats=3)
+        _, _, base_peak = measure_memory_and_peak(calculate_scores_sequential, prices[: min(size, 10_000)])
+        t_base = benchmark_repeated(calculate_scores_sequential, prices[: min(size, 10_000)], repeats=3)
         rows.append(
             {
                 "experiment": "CPU-bound Baseline",
@@ -47,12 +48,8 @@ def run_full_benchmark_suite(
         )
 
         for w in workers_list:
-            _, _, th_peak = measure_memory_and_peak(
-                calculate_scores_threads, prices[:min(size, 10_000)], workers=w
-            )
-            t_th = benchmark_repeated(
-                calculate_scores_threads, prices[:min(size, 10_000)], workers=w, repeats=3
-            )
+            _, _, th_peak = measure_memory_and_peak(calculate_scores_threads, prices[: min(size, 10_000)], workers=w)
+            t_th = benchmark_repeated(calculate_scores_threads, prices[: min(size, 10_000)], workers=w, repeats=3)
             rows.append(
                 {
                     "experiment": f"ThreadPoolExecutor-{w}w",
@@ -67,13 +64,13 @@ def run_full_benchmark_suite(
         for w in workers_list:
             _, _, pr_peak = measure_memory_and_peak(
                 calculate_scores_processes,
-                prices[:min(size, 10_000)],
+                prices[: min(size, 10_000)],
                 workers=w,
                 chunksize=100,
             )
             t_pr = benchmark_repeated(
                 calculate_scores_processes,
-                prices[:min(size, 10_000)],
+                prices[: min(size, 10_000)],
                 workers=w,
                 chunksize=100,
                 repeats=3,
@@ -131,6 +128,7 @@ def run_full_benchmark_suite(
         writer.writerows(rows)
 
     return rows
+
 
 if __name__ == "__main__":
     suite_results = run_full_benchmark_suite([10_000, 100_000], [1, 2, 4, 8])

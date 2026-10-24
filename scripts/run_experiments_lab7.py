@@ -1,12 +1,8 @@
-import os
-import sqlite3
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 from car_catalog.database import create_database_engine, create_session_factory, init_database
 from car_catalog.db_models import CarEntity, Manufacturer
 from car_catalog.repositories import (
@@ -15,6 +11,7 @@ from car_catalog.repositories import (
     bulk_update_prices_by_manufacturer,
     find_cars_by_manufacturer_dbapi,
 )
+
 
 def run_experiment_1() -> None:
     print("=" * 80)
@@ -69,6 +66,7 @@ def run_experiment_1() -> None:
         print("Висновок: Повний цикл CRUD успішно ізольовано в окремому persistence layer.")
         print()
 
+
 def run_experiment_2() -> None:
     print("=" * 80)
     print("ЕКСПЕРИМЕНТ 2: ЗВ'ЯЗОК ONE-TO-MANY ТА КАСКАДНЕ ВИДАЛЕННЯ")
@@ -111,6 +109,7 @@ def run_experiment_2() -> None:
         print("Висновок: ON DELETE CASCADE гарантує цілісність даних та відсутність dangling references.")
         print()
 
+
 def run_experiment_3() -> None:
     print("=" * 80)
     print("ЕКСПЕРИМЕНТ 3: ПАРАМЕТРИЗОВАНІ SQL-ЗАПИТИ ЧЕРЕЗ PYTHON DB-API")
@@ -125,8 +124,26 @@ def run_experiment_3() -> None:
             m_repo = ManufacturerRepository(session)
             c_repo = CarRepository(session)
             porsche = m_repo.add(Manufacturer(name="Porsche", country="Germany"))
-            c_repo.add(CarEntity(manufacturer_id=porsche.id, model="911 Carrera", year=2022, price=115000.0, mileage=9000.0, vin="WP0AA2A91NS100001"))
-            c_repo.add(CarEntity(manufacturer_id=porsche.id, model="Taycan", year=2023, price=95000.0, mileage=11000.0, vin="WP0AA2Y14PSA00002"))
+            c_repo.add(
+                CarEntity(
+                    manufacturer_id=porsche.id,
+                    model="911 Carrera",
+                    year=2022,
+                    price=115000.0,
+                    mileage=9000.0,
+                    vin="WP0AA2A91NS100001",
+                )
+            )
+            c_repo.add(
+                CarEntity(
+                    manufacturer_id=porsche.id,
+                    model="Taycan",
+                    year=2023,
+                    price=95000.0,
+                    mileage=11000.0,
+                    vin="WP0AA2Y14PSA00002",
+                )
+            )
 
         results = find_cars_by_manufacturer_dbapi(db_file.as_posix(), "Porsche")
 
@@ -137,6 +154,7 @@ def run_experiment_3() -> None:
         print("-" * 80)
         print("Висновок: Параметризація (?) унеможливлює SQL-ін'єкції та відповідає стандарту PEP 249.")
         print()
+
 
 def run_experiment_4() -> None:
     print("=" * 80)
@@ -177,10 +195,13 @@ def run_experiment_4() -> None:
         print(f"{'Сценарій':<30} | {'Дія':<25} | {'Ціни після операції':<20}")
         print("-" * 80)
         print(f"{'Валідний (+10% індексація)':<30} | {'COMMIT':<25} | {str(committed_prices):<20}")
-        print(f"{'Збійний (перевищення ліміту)':<30} | {f'ROLLBACK (Caught: {rollback_triggered})':<25} | {str(after_rollback_prices):<20}")
+        print(
+            f"{'Збійний (перевищення ліміту)':<30} | {f'ROLLBACK (Caught: {rollback_triggered})':<25} | {str(after_rollback_prices):<20}"
+        )
         print("-" * 80)
         print("Висновок: Atomicity гарантує повернення БД у вихідний стан при будь-якій помилці.")
         print()
+
 
 def run_experiment_5() -> None:
     print("=" * 80)
@@ -203,13 +224,18 @@ def run_experiment_5() -> None:
 
             stats = c_repo.get_manufacturer_statistics()
 
-        print(f"{'Виробник':<12} | {'Кількість':<10} | {'Сер. ціна ($)':<15} | {'Мін. ціна ($)':<15} | {'Макс. ціна ($)':<15}")
+        print(
+            f"{'Виробник':<12} | {'Кількість':<10} | {'Сер. ціна ($)':<15} | {'Мін. ціна ($)':<15} | {'Макс. ціна ($)':<15}"
+        )
         print("-" * 80)
         for s in stats:
-            print(f"{s['manufacturer']:<12} | {s['total_cars']:<10} | {s['average_price']:<15.2f} | {s['min_price']:<15.2f} | {s['max_price']:<15.2f}")
+            print(
+                f"{s['manufacturer']:<12} | {s['total_cars']:<10} | {s['average_price']:<15.2f} | {s['min_price']:<15.2f} | {s['max_price']:<15.2f}"
+            )
         print("-" * 80)
         print("Висновок: Засоби SQL GROUP BY дозволяють виконувати аналітику на стороні СУБД.")
         print()
+
 
 def run_experiment_6() -> None:
     print("=" * 80)
@@ -226,20 +252,41 @@ def run_experiment_6() -> None:
             m_repo = ManufacturerRepository(session)
             c_repo = CarRepository(session)
             m = m_repo.add(Manufacturer(name="Tesla", country="USA"))
-            c_repo.add(CarEntity(manufacturer_id=m.id, model="Model 3", year=2022, price=40000.0, mileage=15000.0, vin="5YJ3E1EB8NF000001"))
+            c_repo.add(
+                CarEntity(
+                    manufacturer_id=m.id,
+                    model="Model 3",
+                    year=2022,
+                    price=40000.0,
+                    mileage=15000.0,
+                    vin="5YJ3E1EB8NF000001",
+                )
+            )
 
             try:
-                c_repo.add(CarEntity(manufacturer_id=m.id, model="Model Y", year=2023, price=48000.0, mileage=5000.0, vin="5YJ3E1EB8NF000001"))
+                c_repo.add(
+                    CarEntity(
+                        manufacturer_id=m.id,
+                        model="Model Y",
+                        year=2023,
+                        price=48000.0,
+                        mileage=5000.0,
+                        vin="5YJ3E1EB8NF000001",
+                    )
+                )
             except IntegrityError:
                 session.rollback()
                 duplicate_caught = True
 
         print(f"{'Обмеження':<25} | {'Тестований сценарій':<30} | {'Результат':<20}")
         print("-" * 80)
-        print(f"{'UNIQUE constraint':<25} | {'Вставка дубліката VIN':<30} | {f'IntegrityError ({duplicate_caught})':<20}")
+        print(
+            f"{'UNIQUE constraint':<25} | {'Вставка дубліката VIN':<30} | {f'IntegrityError ({duplicate_caught})':<20}"
+        )
         print("-" * 80)
         print("Висновок: Рівень реляційної СУБД надійно блокує порушення унікальності бізнес-ідентифікаторів.")
         print()
+
 
 def run_experiment_7() -> None:
     print("=" * 80)
@@ -265,6 +312,7 @@ def run_experiment_7() -> None:
     print("Висновок: Alembic забезпечує повний версійний контроль схеми даних та безпечний відкат змін.")
     print()
 
+
 def main() -> None:
     run_experiment_1()
     run_experiment_2()
@@ -273,6 +321,7 @@ def main() -> None:
     run_experiment_5()
     run_experiment_6()
     run_experiment_7()
+
 
 if __name__ == "__main__":
     main()

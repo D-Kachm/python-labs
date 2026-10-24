@@ -27,6 +27,7 @@ from car_catalog.profiling import (
 
 RESULTS_CSV = Path("benchmarks/results/benchmark_results.csv")
 
+
 def run_experiment_1_profiling_and_bottleneck() -> None:
     print("\n" + "=" * 80)
     print("ЕКСПЕРИМЕНТ 1: ВИЯВЛЕННЯ ВУЗЬКИХ МІСЦЬ (BOTTLENECK DETECTION) ЧЕРЕЗ cProfile ТА tracemalloc")
@@ -45,6 +46,7 @@ def run_experiment_1_profiling_and_bottleneck() -> None:
     _, curr_np, peak_np = measure_memory_and_peak(statistics_numpy, prices)
     print(f"   NumPy Vectorized Stats: Current = {curr_np:.2f} KB | Peak = {peak_np:.2f} KB")
     print(f"   Зменшення пікового споживання пам'яті: {peak_py / peak_np if peak_np > 0 else 1.0:.2f}x")
+
 
 def run_experiment_2_concurrency_and_locks() -> None:
     print("\n" + "=" * 80)
@@ -74,9 +76,10 @@ def run_experiment_2_concurrency_and_locks() -> None:
     for t in threads_unsafe:
         t.join()
 
-    print(f"Очікуване значення лічильника (10 потоків * 2000 ітерацій): 20000")
+    print("Очікуване значення лічильника (10 потоків * 2000 ітерацій): 20000")
     print(f"ThreadSafeCounter (із Lock):   {safe_counter.value} (коректно)")
     print(f"UnsafeCounter (без Lock):      {unsafe_counter.value} (стан гонитви / race condition)")
+
 
 def run_experiment_3_caching_and_invalidation() -> None:
     print("\n" + "=" * 80)
@@ -103,6 +106,7 @@ def run_experiment_3_caching_and_invalidation() -> None:
     t_invalidated = time.perf_counter() - start
     print(f"Після зміни версії (Cache Invalidation):    {t_invalidated:.6f} s (новий промах / miss)")
 
+
 def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
     print("\n" + "=" * 80)
     print("ЕКСПЕРИМЕНТ 4: ПОВНА МАТРИЦЯ БЕНЧМАРКІВ (3 РОЗМІРИ DATASET x 4 КОНФІГУРАЦІЇ WORKERS)")
@@ -121,7 +125,7 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
 
     for size in dataset_sizes:
         prices = generate_sample_prices(size, seed=42)
-        sample = prices[:min(size, 10_000)]
+        sample = prices[: min(size, 10_000)]
 
         runs_seq: list[float] = []
         for _ in range(3):
@@ -143,7 +147,9 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
             "speedup": 1.0,
         }
         all_rows.append(row_seq)
-        print(f"{size:<10} | {'Sequential Baseline':<24} | {1:<7} | {runs_seq[0]:<8.4f} | {runs_seq[1]:<8.4f} | {runs_seq[2]:<8.4f} | {mean_seq:<9.4f} | {peak_seq:<9.1f} | {'1.00x':<8}")
+        print(
+            f"{size:<10} | {'Sequential Baseline':<24} | {1:<7} | {runs_seq[0]:<8.4f} | {runs_seq[1]:<8.4f} | {runs_seq[2]:<8.4f} | {mean_seq:<9.4f} | {peak_seq:<9.1f} | {'1.00x':<8}"
+        )
 
         for w in workers_configs:
             runs_th: list[float] = []
@@ -166,7 +172,9 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
                 "speedup": sp_th,
             }
             all_rows.append(row_th)
-            print(f"{size:<10} | {f'ThreadPoolExecutor-{w}w':<24} | {w:<7} | {runs_th[0]:<8.4f} | {runs_th[1]:<8.4f} | {runs_th[2]:<8.4f} | {mean_th:<9.4f} | {peak_th:<9.1f} | {f'{sp_th:.2f}x':<8}")
+            print(
+                f"{size:<10} | {f'ThreadPoolExecutor-{w}w':<24} | {w:<7} | {runs_th[0]:<8.4f} | {runs_th[1]:<8.4f} | {runs_th[2]:<8.4f} | {mean_th:<9.4f} | {peak_th:<9.1f} | {f'{sp_th:.2f}x':<8}"
+            )
 
         for w in workers_configs:
             runs_pr: list[float] = []
@@ -189,7 +197,9 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
                 "speedup": sp_pr,
             }
             all_rows.append(row_pr)
-            print(f"{size:<10} | {f'ProcessPoolExecutor-{w}w':<24} | {w:<7} | {runs_pr[0]:<8.4f} | {runs_pr[1]:<8.4f} | {runs_pr[2]:<8.4f} | {mean_pr:<9.4f} | {peak_pr:<9.1f} | {f'{sp_pr:.2f}x':<8}")
+            print(
+                f"{size:<10} | {f'ProcessPoolExecutor-{w}w':<24} | {w:<7} | {runs_pr[0]:<8.4f} | {runs_pr[1]:<8.4f} | {runs_pr[2]:<8.4f} | {mean_pr:<9.4f} | {peak_pr:<9.1f} | {f'{sp_pr:.2f}x':<8}"
+            )
 
         runs_py_st: list[float] = []
         for _ in range(3):
@@ -211,7 +221,9 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
             "speedup": 1.0,
         }
         all_rows.append(row_py_st)
-        print(f"{size:<10} | {'Python Stats (Loops)':<24} | {1:<7} | {runs_py_st[0]:<8.5f} | {runs_py_st[1]:<8.5f} | {runs_py_st[2]:<8.5f} | {mean_py_st:<9.5f} | {peak_py_st:<9.1f} | {'1.00x':<8}")
+        print(
+            f"{size:<10} | {'Python Stats (Loops)':<24} | {1:<7} | {runs_py_st[0]:<8.5f} | {runs_py_st[1]:<8.5f} | {runs_py_st[2]:<8.5f} | {mean_py_st:<9.5f} | {peak_py_st:<9.1f} | {'1.00x':<8}"
+        )
 
         runs_np_st: list[float] = []
         for _ in range(3):
@@ -234,7 +246,9 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
             "speedup": sp_np_st,
         }
         all_rows.append(row_np_st)
-        print(f"{size:<10} | {'NumPy Stats (Vectorized)':<24} | {1:<7} | {runs_np_st[0]:<8.5f} | {runs_np_st[1]:<8.5f} | {runs_np_st[2]:<8.5f} | {mean_np_st:<9.5f} | {peak_np_st:<9.1f} | {f'{sp_np_st:.2f}x':<8}")
+        print(
+            f"{size:<10} | {'NumPy Stats (Vectorized)':<24} | {1:<7} | {runs_np_st[0]:<8.5f} | {runs_np_st[1]:<8.5f} | {runs_np_st[2]:<8.5f} | {mean_np_st:<9.5f} | {peak_np_st:<9.1f} | {f'{sp_np_st:.2f}x':<8}"
+        )
         print("-" * len(header))
 
     RESULTS_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -258,6 +272,7 @@ def run_experiment_4_benchmark_matrix() -> list[dict[str, Any]]:
     print(f"\nЕкспериментальні дані збережено в CSV: {RESULTS_CSV}")
     return all_rows
 
+
 def main() -> None:
     print("=" * 80)
     print("ЛАБОРАТОРНА РОБОТА №9: ДОСЛІДЖЕННЯ ПАРАЛЕЛЬНОСТІ, ПРОЦЕСІВ ТА ОПТИМІЗАЦІЇ")
@@ -267,6 +282,7 @@ def main() -> None:
     run_experiment_3_caching_and_invalidation()
     run_experiment_4_benchmark_matrix()
     print("\nУсі 4 експерименти Лабораторної №9 виконано успішно.")
+
 
 if __name__ == "__main__":
     main()

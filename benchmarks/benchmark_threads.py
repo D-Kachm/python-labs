@@ -5,9 +5,8 @@ from car_catalog.analytics import (
 from car_catalog.parallel import calculate_scores_threads
 from car_catalog.profiling import benchmark_repeated, calculate_speedup
 
-def run_threads_benchmark(
-    count: int = 10_000, workers_list: list[int] | None = None
-) -> list[dict[str, float]]:
+
+def run_threads_benchmark(count: int = 10_000, workers_list: list[int] | None = None) -> list[dict[str, float]]:
     if workers_list is None:
         workers_list = [1, 2, 4, 8]
     prices = generate_sample_prices(count, seed=42)
@@ -29,6 +28,7 @@ def run_threads_benchmark(
             }
         )
     return results
+
 
 if __name__ == "__main__":
     for row in run_threads_benchmark():

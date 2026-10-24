@@ -9,6 +9,7 @@ from car_catalog.profiling import (
     measure_memory_and_peak,
 )
 
+
 def run_numpy_benchmark(count: int = 100_000) -> dict[str, float]:
     prices = generate_sample_prices(count, seed=42)
     _, _, py_peak = measure_memory_and_peak(statistics_python, prices)
@@ -23,6 +24,7 @@ def run_numpy_benchmark(count: int = 100_000) -> dict[str, float]:
         "python_peak_kb": py_peak,
         "numpy_peak_kb": np_peak,
     }
+
 
 if __name__ == "__main__":
     res = run_numpy_benchmark()

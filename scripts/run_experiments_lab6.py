@@ -1,8 +1,6 @@
 import random
 import tempfile
-import time
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock
 
 from car_catalog.abstractions import PercentageDiscount
@@ -10,7 +8,7 @@ from car_catalog.models import Car
 from car_catalog.protocols import ExternalVehicleInfoService, VehicleNotifier
 from car_catalog.repositories import VehicleRepository
 from car_catalog.services import CatalogService, VehicleEnrichmentService
-from car_catalog.value_objects import Money
+
 
 def run_experiment_1() -> None:
     print("=" * 80)
@@ -52,6 +50,7 @@ def run_experiment_1() -> None:
     print("Висновок: Execution != Verification. Виконання рядка без перевірки не доводить правильність.")
     print()
 
+
 def run_experiment_2() -> None:
     print("=" * 80)
     print("ЕКСПЕРИМЕНТ 2: COVERAGE БЕЗ ASSERTIONS")
@@ -59,7 +58,7 @@ def run_experiment_2() -> None:
 
     def calculate_tax(price: float) -> float:
         tax_rate = 0.20
-        calculated = price * tax_rate
+        _calculated = price * tax_rate
         return 0.0
 
     statements = 3
@@ -80,11 +79,16 @@ def run_experiment_2() -> None:
 
     print(f"{'Метрика / Тест':<30} | {'Покриття коду (Coverage)':<25} | {'Виявлення багу':<18}")
     print("-" * 80)
-    print(f"{'Тест без assert':<30} | {f'{coverage_pct:.1f}% Statement Coverage':<25} | {'НЕ виявлено (False Positive)':<18}")
-    print(f"{'Тест із валідним assert':<30} | {f'{coverage_pct:.1f}% Statement Coverage':<25} | {'ВИЯВЛЕНО (AssertionError)':<18}")
+    print(
+        f"{'Тест без assert':<30} | {f'{coverage_pct:.1f}% Statement Coverage':<25} | {'НЕ виявлено (False Positive)':<18}"
+    )
+    print(
+        f"{'Тест із валідним assert':<30} | {f'{coverage_pct:.1f}% Statement Coverage':<25} | {'ВИЯВЛЕНО (AssertionError)':<18}"
+    )
     print("-" * 80)
     print("Висновок: 100% coverage не гарантує відсутність помилок. Змістовні assertions критично важливі.")
     print()
+
 
 def run_experiment_3() -> None:
     print("=" * 80)
@@ -114,6 +118,7 @@ def run_experiment_3() -> None:
     print("-" * 90)
     print("Висновок: Statement coverage не фіксує пропуск альтернативних гілок розгалуження (if/else).")
     print()
+
 
 def run_experiment_4() -> None:
     print("=" * 80)
@@ -150,6 +155,7 @@ def run_experiment_4() -> None:
     print("Висновок: Fake краще для збереження стану, Mock — для зовнішніх сайд-ефектів (нотифікацій/API).")
     print()
 
+
 def run_experiment_5() -> None:
     print("=" * 80)
     print("ЕКСПЕРИМЕНТ 5: FLAKY TEST VS DETERMINISTIC TEST")
@@ -175,6 +181,7 @@ def run_experiment_5() -> None:
     print("Висновок: Flaky tests руйнують довіру до CI. Залежності від часу/рандому повинні бути детерміновані.")
     print()
 
+
 def run_experiment_6() -> None:
     print("=" * 80)
     print("ЕКСПЕРИМЕНТ 6: TMP_PATH ISOLATION")
@@ -196,11 +203,16 @@ def run_experiment_6() -> None:
 
     print(f"{'Ізольоване середовище':<25} | {'Під час виконання':<22} | {'Після завершення (Cleanup)':<25}")
     print("-" * 80)
-    print(f"{'Run 1 (tmp_path 1)':<25} | {f'Exists: {exists_during_1}':<22} | {f'Exists: {exists_after_1} (Cleaned)':<25}")
-    print(f"{'Run 2 (tmp_path 2)':<25} | {f'Exists: {exists_during_2}':<22} | {f'Exists: {exists_after_2} (Cleaned)':<25}")
+    print(
+        f"{'Run 1 (tmp_path 1)':<25} | {f'Exists: {exists_during_1}':<22} | {f'Exists: {exists_after_1} (Cleaned)':<25}"
+    )
+    print(
+        f"{'Run 2 (tmp_path 2)':<25} | {f'Exists: {exists_during_2}':<22} | {f'Exists: {exists_after_2} (Cleaned)':<25}"
+    )
     print("-" * 80)
     print("Висновок: tmp_path гарантує hermetic environment: відсутність конфліктів та сміття в робочій директорії.")
     print()
+
 
 def run_experiment_7() -> None:
     print("=" * 80)
@@ -224,10 +236,13 @@ def run_experiment_7() -> None:
 
     print(f"{'Сценарій':<25} | {'Зовнішній виклик':<25} | {'Exception спіймано':<20} | {'Unwanted Call':<15}")
     print("-" * 90)
-    print(f"{'Збій зовнішнього API':<25} | {'ConnectionError raised':<25} | {f'{failure_caught}':<20} | {f'Notifier called: {notifier_called}':<15}")
+    print(
+        f"{'Збій зовнішнього API':<25} | {'ConnectionError raised':<25} | {f'{failure_caught}':<20} | {f'Notifier called: {notifier_called}':<15}"
+    )
     print("-" * 90)
     print("Висновок: Failure path тестує не лише генерацію винятку, а й відсутність небажаних сайд-ефектів.")
     print()
+
 
 def main() -> None:
     run_experiment_1()
@@ -237,6 +252,7 @@ def main() -> None:
     run_experiment_5()
     run_experiment_6()
     run_experiment_7()
+
 
 if __name__ == "__main__":
     main()

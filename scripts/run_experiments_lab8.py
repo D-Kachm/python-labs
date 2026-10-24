@@ -7,12 +7,13 @@ from car_catalog.api import app, get_session
 from car_catalog.database import Base, create_database_engine, create_session_factory
 from car_catalog.db_models import CarEntity, Manufacturer
 from car_catalog.external_api import (
-    fetch_resources_concurrently,
     fetch_single_resource_with_retry,
 )
 
+
 def setup_demo_db() -> tuple[Any, Any]:
     from sqlalchemy.pool import StaticPool
+
     engine = create_database_engine("sqlite:///:memory:", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -24,14 +25,23 @@ def setup_demo_db() -> tuple[Any, Any]:
     session.add_all([toyota, bmw, porsche])
     session.commit()
 
-    c1 = CarEntity(manufacturer_id=toyota.id, model="Camry", year=2021, price=26000.0, mileage=45000.0, vin="WP0AA2A91NS000001")
-    c2 = CarEntity(manufacturer_id=toyota.id, model="Corolla", year=2020, price=19000.0, mileage=55000.0, vin="WP0AA2A91NS000002")
-    c3 = CarEntity(manufacturer_id=bmw.id, model="M3", year=2022, price=75000.0, mileage=12000.0, vin="WP0AA2A91NS000003")
-    c4 = CarEntity(manufacturer_id=porsche.id, model="911", year=2023, price=120000.0, mileage=5000.0, vin="WP0AA2A91NS000004")
+    c1 = CarEntity(
+        manufacturer_id=toyota.id, model="Camry", year=2021, price=26000.0, mileage=45000.0, vin="WP0AA2A91NS000001"
+    )
+    c2 = CarEntity(
+        manufacturer_id=toyota.id, model="Corolla", year=2020, price=19000.0, mileage=55000.0, vin="WP0AA2A91NS000002"
+    )
+    c3 = CarEntity(
+        manufacturer_id=bmw.id, model="M3", year=2022, price=75000.0, mileage=12000.0, vin="WP0AA2A91NS000003"
+    )
+    c4 = CarEntity(
+        manufacturer_id=porsche.id, model="911", year=2023, price=120000.0, mileage=5000.0, vin="WP0AA2A91NS000004"
+    )
     session.add_all([c1, c2, c3, c4])
     session.commit()
 
     return engine, session
+
 
 def run_experiment_1() -> None:
     print("=" * 80)
@@ -44,14 +54,28 @@ def run_experiment_1() -> None:
     print(f"{'Операція':<18} | {'HTTP Метод':<12} | {'Endpoint':<22} | {'Статус':<8} | {'Результат':<15}")
     print("-" * 80)
 
-    res_post = client.post("/cars", json={"manufacturer_id": 1, "model": "Yaris", "year": 2022, "price": 17500.0, "mileage": 20000.0, "vin": "WP0AA2A91NS000005"})
+    res_post = client.post(
+        "/cars",
+        json={
+            "manufacturer_id": 1,
+            "model": "Yaris",
+            "year": 2022,
+            "price": 17500.0,
+            "mileage": 20000.0,
+            "vin": "WP0AA2A91NS000005",
+        },
+    )
     print(f"{'Create':<18} | {'POST':<12} | {'/cars':<22} | {res_post.status_code:<8} | ID: {res_post.json()['id']}")
 
     res_get = client.get("/cars/1")
-    print(f"{'Read':<18} | {'GET':<12} | {'/cars/1':<22} | {res_get.status_code:<8} | {res_get.json()['model']} (${res_get.json()['price']})")
+    print(
+        f"{'Read':<18} | {'GET':<12} | {'/cars/1':<22} | {res_get.status_code:<8} | {res_get.json()['model']} (${res_get.json()['price']})"
+    )
 
     res_patch = client.patch("/cars/1", json={"price": 25000.0})
-    print(f"{'Update':<18} | {'PATCH':<12} | {'/cars/1':<22} | {res_patch.status_code:<8} | Нова ціна: ${res_patch.json()['price']}")
+    print(
+        f"{'Update':<18} | {'PATCH':<12} | {'/cars/1':<22} | {res_patch.status_code:<8} | Нова ціна: ${res_patch.json()['price']}"
+    )
 
     res_del = client.delete("/cars/1")
     print(f"{'Delete':<18} | {'DELETE':<12} | {'/cars/1':<22} | {res_del.status_code:<8} | Видалено успішно")
@@ -63,6 +87,7 @@ def run_experiment_1() -> None:
     print("Висновок: Повний цикл CRUD успішно реалізовано з коректними HTTP-статусами (201, 200, 204, 404).")
     print()
 
+
 def run_experiment_2() -> None:
     print("=" * 80)
     print("ЕКСПЕРИМЕНТ 2: PYDANTIC ВАЛІДАЦІЯ ТА ОБРОБКА ПОМИЛОК")
@@ -72,11 +97,66 @@ def run_experiment_2() -> None:
     client = TestClient(app)
 
     scenarios = [
-        ("Валідні дані", {"manufacturer_id": 1, "model": "Supra", "year": 2023, "price": 55000.0, "mileage": 8000.0, "vin": "WP0AA2A91NS000006"}, 201),
-        ("Невалідний рік (<1886)", {"manufacturer_id": 1, "model": "Old", "year": 1800, "price": 10000.0, "mileage": 1000.0, "vin": "WP0AA2A91NS000007"}, 422),
-        ("Від'ємна ціна", {"manufacturer_id": 1, "model": "Minus", "year": 2020, "price": -50.0, "mileage": 1000.0, "vin": "WP0AA2A91NS000008"}, 422),
-        ("Невалідний VIN (<17 знаків)", {"manufacturer_id": 1, "model": "BadVIN", "year": 2020, "price": 20000.0, "mileage": 1000.0, "vin": "SHORT"}, 422),
-        ("Дублікат VIN", {"manufacturer_id": 1, "model": "Dup", "year": 2021, "price": 26000.0, "mileage": 45000.0, "vin": "WP0AA2A91NS000001"}, 409),
+        (
+            "Валідні дані",
+            {
+                "manufacturer_id": 1,
+                "model": "Supra",
+                "year": 2023,
+                "price": 55000.0,
+                "mileage": 8000.0,
+                "vin": "WP0AA2A91NS000006",
+            },
+            201,
+        ),
+        (
+            "Невалідний рік (<1886)",
+            {
+                "manufacturer_id": 1,
+                "model": "Old",
+                "year": 1800,
+                "price": 10000.0,
+                "mileage": 1000.0,
+                "vin": "WP0AA2A91NS000007",
+            },
+            422,
+        ),
+        (
+            "Від'ємна ціна",
+            {
+                "manufacturer_id": 1,
+                "model": "Minus",
+                "year": 2020,
+                "price": -50.0,
+                "mileage": 1000.0,
+                "vin": "WP0AA2A91NS000008",
+            },
+            422,
+        ),
+        (
+            "Невалідний VIN (<17 знаків)",
+            {
+                "manufacturer_id": 1,
+                "model": "BadVIN",
+                "year": 2020,
+                "price": 20000.0,
+                "mileage": 1000.0,
+                "vin": "SHORT",
+            },
+            422,
+        ),
+        (
+            "Дублікат VIN",
+            {
+                "manufacturer_id": 1,
+                "model": "Dup",
+                "year": 2021,
+                "price": 26000.0,
+                "mileage": 45000.0,
+                "vin": "WP0AA2A91NS000001",
+            },
+            409,
+        ),
     ]
 
     print(f"{'Сценарій запиту':<30} | {'Очікуваний статус':<18} | {'Фактичний статус':<18} | {'Результат':<8}")
@@ -89,6 +169,7 @@ def run_experiment_2() -> None:
     print("-" * 80)
     print("Висновок: Pydantic schemas блокують невалідні вхідні дані на рівні валідації (422) та унікальності (409).")
     print()
+
 
 def run_experiment_3() -> None:
     print("=" * 80)
@@ -117,6 +198,7 @@ def run_experiment_3() -> None:
     print("-" * 80)
     print("Висновок: Фільтрація та пагінація за допомогою query parameters дозволяють ефективно обирати дані.")
     print()
+
 
 async def run_async_operations() -> None:
     print("=" * 80)
@@ -222,11 +304,13 @@ async def run_async_operations() -> None:
     print("Висновок: Ендпоінт /cars/batch забезпечує паралельне вичитування сутностей без блокування черги.")
     print()
 
+
 def main() -> None:
     run_experiment_1()
     run_experiment_2()
     run_experiment_3()
     asyncio.run(run_async_operations())
+
 
 if __name__ == "__main__":
     main()
