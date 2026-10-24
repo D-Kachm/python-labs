@@ -1,0 +1,20 @@
+services:
+  car-catalog:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: car-catalog:1.0.0
+    container_name: car-catalog-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=sqlite:////app/data/cars.db
+    volumes:
+      - car_data:/app/data
+
+volumes:
+  car_data:
+    driver: local
