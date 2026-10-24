@@ -20,6 +20,21 @@ from car_catalog.analytics import (
     get_catalog_summary,
     get_price_range,
     sort_by_price,
+    cached_brand_statistics,
+    calculate_scores_sequential,
+    generate_sample_prices,
+    invalidate_brand_statistics_cache,
+    statistics_numpy,
+    statistics_python,
+)
+from car_catalog.parallel import (
+    ThreadSafeCounter,
+    calculate_scores_processes,
+    calculate_scores_threads,
+)
+from car_catalog.profiling import (
+    calculate_speedup,
+    get_system_cpu_count,
 )
 from car_catalog.batches import batched_cars
 from car_catalog.benchmark import (
@@ -531,7 +546,9 @@ def print_menu() -> None:
     print("  18. Демонстрація ООП, протоколів, DI та Generic Repository (Лаб 4)")
     print("  [Лабораторна робота №5 - Обробка помилок, файли та серіалізація]")
     print("  19. Надійний конвеєр імпорту/експорту та серіалізація (Лаб 5)")
-    print("  20. Вихід")
+    print("  [Лабораторна робота №9 - Паралельність, багатопроцесність та оптимізація]")
+    print("  20. Демонстрація паралельності, багатопроцесності та оптимізації (Лаб 9)")
+    print("  21. Вихід")
 
 def run_menu(cars: list[Car]) -> None:
     history: deque[str] = deque(maxlen=10)
@@ -539,7 +556,7 @@ def run_menu(cars: list[Car]) -> None:
 
     while True:
         print_menu()
-        cmd = input("Оберіть команду (1-20): ").strip()
+        cmd = input("Оберіть команду (1-21): ").strip()
         history.append(f"Команда {cmd}")
 
         if cmd == "1":
@@ -646,10 +663,92 @@ def run_menu(cars: list[Car]) -> None:
         elif cmd == "19":
             run_reliable_demo()
         elif cmd == "20":
+            run_parallel_demo()
+        elif cmd == "21":
             print("Роботу завершено. До побачення!")
             break
         else:
             print("Невідома команда. Спробуйте ще раз.")
+
+def run_parallel_demo() -> None:
+    from threading import Thread
+    print("\n=== ДЕМОНСТРАЦІЯ ЛАБОРАТОРНОЇ РОБОТИ №9 (Паралельність, багатопроцесність та оптимізація) ===")
+    cpu_count = get_system_cpu_count()
+    print(f"Доступна кількість ядер процесора: {cpu_count}")
+    prices = generate_sample_prices(5000, seed=42)
+    print(f"Згенеровано вибірку з {len(prices)} цін автомобілів.")
+
+    start = perf_counter()
+    seq_scores = calculate_scores_sequential(prices)
+    t_seq = perf_counter() - start
+    print(f"1. Sequential baseline (CPU-bound): {t_seq:.4f} s (обчислено {len(seq_scores)} оцінок)")
+
+    workers_to_use = min(4, max(1, cpu_count))
+    start = perf_counter()
+    calculate_scores_threads(prices, workers=workers_to_use)
+    t_th = perf_counter() - start
+    print(f"2. ThreadPoolExecutor ({workers_to_use} workers): {t_th:.4f} s (Speedup: {calculate_speedup(t_seq, t_th):.2f}x)")
+
+    start = perf_counter()
+    calculate_scores_processes(prices, workers=workers_to_use, chunksize=100)
+    t_pr = perf_counter() - start
+    print(f"3. ProcessPoolExecutor ({workers_to_use} workers): {t_pr:.4f} s (Speedup: {calculate_speedup(t_seq, t_pr):.2f}x)")
+
+    start = perf_counter()
+    py_stats = statistics_python(prices)
+    t_pystat = perf_counter() - start
+
+    start = perf_counter()
+    np_stats = statistics_numpy(prices)
+    t_npstat = perf_counter() - start
+    print(f"4. Числова статистика: Pure Python = {t_pystat:.6f} s, NumPy = {t_npstat:.6f} s (Speedup: {calculate_speedup(t_pystat, t_npstat):.2f}x)")
+    print(f"   Python: avg={py_stats['average']:.2f}, std={py_stats['std']:.2f}")
+    print(f"   NumPy:  avg={np_stats['average']:.2f}, std={np_stats['std']:.2f}")
+
+    print("\n5. Демонстрація Caching (LRU Cache з інвалідацією):")
+    start = perf_counter()
+    cached_brand_statistics("BMW", version=1)
+    t_cold = perf_counter() - start
+    print(f"   Cold cache (перший виклик): {t_cold:.6f} s")
+
+    start = perf_counter()
+    cached_brand_statistics("BMW", version=1)
+    t_warm = perf_counter() - start
+    print(f"   Warm cache (повторний виклик): {t_warm:.6f} s (Speedup: {calculate_speedup(t_cold, t_warm):.2f}x)")
+
+    invalidate_brand_statistics_cache()
+    print("   Кеш інвалідовано (cache_clear / version change).")
+
+    print("\n6. Демонстрація ThreadSafeCounter (синхронізація Lock):")
+    counter = ThreadSafeCounter()
+    def increment_task() -> None:
+        for _ in range(1000):
+            counter.increment()
+    threads = [Thread(target=increment_task) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    print(f"   Фінальне значення лічильника (10 потоків x 1000 інкрементів): {counter.value} (очікувано 10000)")
+
+def run_parallel_benchmark_cli() -> None:
+    from car_catalog.profiling import benchmark_repeated
+    print("\n=== ЕКСПЕРИМЕНТАЛЬНИЙ БЕНЧМАРК ОПТИМІЗАЦІЙ ЛАБОРАТОРНОЇ №9 ===")
+    cpu_count = get_system_cpu_count()
+    print(f"CPU cores: {cpu_count}")
+    data_sizes = [5000, 20000]
+    for size in data_sizes:
+        print(f"\n--- Тестування на вибірці N={size} записів ---")
+        prices = generate_sample_prices(size, seed=42)
+        t_seq = benchmark_repeated(calculate_scores_sequential, prices, repeats=3)
+        t_th = benchmark_repeated(calculate_scores_threads, prices, workers=4, repeats=3)
+        t_pr = benchmark_repeated(calculate_scores_processes, prices, workers=4, chunksize=100, repeats=3)
+        t_np = benchmark_repeated(statistics_numpy, prices, repeats=5)
+        t_py = benchmark_repeated(statistics_python, prices, repeats=5)
+        print(f"CPU-bound Sequential: {t_seq:.4f} s (1.00x)")
+        print(f"CPU-bound ThreadPool (4w): {t_th:.4f} s ({calculate_speedup(t_seq, t_th):.2f}x)")
+        print(f"CPU-bound ProcessPool (4w): {t_pr:.4f} s ({calculate_speedup(t_seq, t_pr):.2f}x)")
+        print(f"Vectorization NumPy stats: {t_np:.6f} s vs Python stats {t_py:.6f} s ({calculate_speedup(t_py, t_np):.2f}x)")
 
 def main() -> None:
     cars = list(DEMO_CARS)
@@ -676,6 +775,10 @@ def main() -> None:
                 except ValueError:
                     port = 8000
         uvicorn.run("car_catalog.api:app", host="127.0.0.1", port=port, reload=False)
+    elif "--parallel-demo" in sys.argv:
+        run_parallel_demo()
+    elif "--parallel-benchmark" in sys.argv:
+        run_parallel_benchmark_cli()
     elif "--oop-demo" in sys.argv:
         run_oop_demo()
     elif "--stream-demo" in sys.argv:
@@ -703,3 +806,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

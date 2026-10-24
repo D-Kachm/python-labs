@@ -1,16 +1,19 @@
 # Python Labs
 
-Навчальний проєкт з дисципліни «Професійний Python». 
+Навчальний проєкт з дисципліни «Професійний Python».
 Містить каталог автомобілів (Варіант 5), який модульно розвивається протягом 10 лабораторних робіт.
 
 ## Author
+
 Студент: Качмар Денис Богданович  
-Група: ФЕП-33с  
+Група: ФЕП-33с
 
 ## Requirements
+
 Python 3.11+ (рекомендовано 3.12)
 
 ## Installation & Setup
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
@@ -20,13 +23,36 @@ python3 -m pip install -e ".[dev]"
 ## Running the Application
 
 ### 1. Інтерактивне консольне меню:
+
 ```bash
 car-catalog
 # або
 python3 -m car_catalog.main
 ```
 
-### 2. Лабораторна робота №8 (Мережеве та асинхронне програмування. REST API):
+### 2. Лабораторна робота №9 (Паралельність, багатопроцесність та оптимізація):
+
+```bash
+# Демонстрація паралельності (ThreadPool vs ProcessPool vs NumPy vs Caching, Lock):
+car-catalog --parallel-demo
+# або напряму:
+python3 -m car_catalog.main --parallel-demo
+
+# Запуск порівняльного консольного бенчмарку оптимізацій:
+python3 -m car_catalog.main --parallel-benchmark
+
+# Запуск повного комплексного експерименту з профілюванням (cProfile, tracemalloc, matrix 3 datasets x 4 workers):
+python3 scripts/run_experiments_lab9.py
+
+# Запуск модульних бенчмарків та експорт результатів у CSV:
+python3 benchmarks/benchmark.py
+
+# Запуск тестів паралельних обчислень та векторизації (10 тестів):
+pytest tests/unit/test_parallel.py -v
+```
+
+### 3. Лабораторна робота №8 (Мережеве та асинхронне програмування. REST API):
+
 ```bash
 # Запуск асинхронного REST API сервера (FastAPI + Uvicorn):
 car-catalog --run-api
@@ -47,7 +73,8 @@ pytest tests/integration/test_api.py -v
 python3 scripts/run_experiments_lab8.py
 ```
 
-### 3. Лабораторна робота №7 (Робота з базами даних у Python):
+### 4. Лабораторна робота №7 (Робота з базами даних у Python):
+
 ```bash
 # Запуск міграцій схеми бази даних за допомогою Alembic:
 alembic current
@@ -61,7 +88,8 @@ pytest tests/integration/test_repositories.py -v
 python3 scripts/run_experiments_lab7.py
 ```
 
-### 4. Лабораторна робота №6 (Автоматизоване тестування Python-програм):
+### 5. Лабораторна робота №6 (Автоматизоване тестування Python-програм):
+
 ```bash
 # Запуск повного тестового набору з покриттям коду та перевіркою розгалужень (Branch Coverage):
 pytest -v --cov=car_catalog --cov-branch --cov-report=term-missing --cov-report=html
@@ -76,7 +104,8 @@ pytest tests/integration/ -v
 python3 scripts/run_experiments_lab6.py
 ```
 
-### 5. Лабораторна робота №5 (Обробка помилок, файли та серіалізація):
+### 6. Лабораторна робота №5 (Обробка помилок, файли та серіалізація):
+
 ```bash
 # Демонстрація надійного імпорту/експорту (fail-fast, tolerant mode, atomic replace, exception chaining):
 python3 -m car_catalog.main --reliable-demo
@@ -86,16 +115,18 @@ python3 -m car_catalog.main --reliable-pipeline config.yaml
 python3 scripts/run_experiments_lab5.py
 ```
 
-### 6. Лабораторна робота №4 (Професійне ООП та система типів Python):
+### 7. Лабораторна робота №4 (Професійне ООП та система типів Python):
+
 ```bash
 # Демонстрація ООП, протоколів, DI, Value Objects та Generic Repository:
 python3 -m car_catalog.main --oop-demo
 
 # Статична перевірка типів через mypy у строгому режимі:
-mypy src tests scripts
+mypy src tests scripts benchmarks
 ```
 
-### 7. Лабораторна робота №3 (Потоковий конвеєр, ітератори та генератори):
+### 8. Лабораторна робота №3 (Потоковий конвеєр, ітератори та генератори):
+
 ```bash
 # Демонстрація повного streaming pipeline (читання, валідація, фільтрація, batching, itertools):
 python3 -m car_catalog.main --stream-demo
@@ -107,7 +138,8 @@ python3 -m car_catalog.main --stream-benchmark
 python3 -m car_catalog.main --generate-dataset 100000
 ```
 
-### 8. Лабораторна робота №2 (Структури даних та декомпозиція):
+### 9. Лабораторна робота №2 (Структури даних та декомпозиція):
+
 ```bash
 # Автоматична демонстрація функціоналу Лаб 2:
 python3 -m car_catalog.main --demo
@@ -117,12 +149,14 @@ python3 -m car_catalog.main --benchmark
 ```
 
 ## Running Tests
+
 ```bash
 # Рекомендована команда запуску pytest із формуванням coverage звіту:
 pytest -v --cov=car_catalog --cov-branch --cov-report=term-missing
 ```
 
 ## Static Type Checking
+
 ```bash
-mypy src tests scripts
+mypy src tests scripts benchmarks
 ```
